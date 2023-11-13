@@ -13,7 +13,7 @@ and obj = {
 exception Error of string
 exception Return of value
 
-let exec_prog (p: program): unit =
+let exec_prog p =
   let env = Hashtbl.create 16 in
   List.iter (fun (x, _) -> Hashtbl.add env x Null) p.globals;
   
@@ -21,29 +21,128 @@ let exec_prog (p: program): unit =
     failwith "eval_call not implemented"
 
   and exec_seq s lenv =
-    let rec evali e = match eval e with
-      | VInt n -> n
+    let rec eval_unop op e = 
+      match op with
+      | Opp ->
+        begin
+          match eval e with
+          | VInt n -> VInt (-n)
+          | _ -> assert false
+        end
+      | Not ->
+        begin
+          match eval e with
+          | VBool b -> VBool (not b)
+          | _ -> assert false
+        end
       | _ -> assert false
-    and evalb e = match eval e with
-      | VBool b -> b
+
+    and eval_binop op e1 e2 = 
+      match op with
+      | Add ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VInt (n1 + n2)
+          | _ -> assert false
+        end
+      | Sub ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VInt (n1 - n2)
+          | _ -> assert false
+        end
+      | Mul ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VInt (n1 * n2)
+          | _ -> assert false
+        end
+      | Div ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VInt (n1 / n2)
+          | _ -> assert false
+        end
+      | Mod ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VInt (n1 mod n2)
+          | _ -> assert false
+        end
+      | Le ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool (n1 <= n2)
+          | _ -> assert false
+        end
+      | Lt ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool (n1 < n2)
+          | _ -> assert false
+        end
+      | Ge ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool (n1 >= n2)
+          | _ -> assert false
+        end
+      | Gt ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool (n1 > n2)
+          | _ -> assert false
+        end
+      | Eq ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool (n1 = n2)
+          | VBool b1, VBool b2 -> VBool (b1 = b2)
+          | _ -> assert false
+        end
+      | Neq ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool (n1 <> n2)
+          | VBool b1, VBool b2 -> VBool (b1 <> b2)
+          | _ -> assert false
+        end
+      | And ->
+        begin
+          match eval e1, eval e2 with
+          | VBool b1, VBool b2 -> VBool (b1 && b2)
+          | _ -> assert false
+        end
+      | Or ->
+        begin
+          match eval e1, eval e2 with
+          | VBool b1, VBool b2 -> VBool (b1 || b2)
+          | _ -> assert false
+        end
       | _ -> assert false
-    and evalo e = match eval e with
-      | VObj o -> o
-      | _ -> assert false
-        
-    and eval (e: expr): value = match e with
+
+    and eval e =
+      match e with
       | Int n  -> VInt n
+      | Bool b -> VBool b
+      | Binop (op, e1, e2) -> eval_binop op e1 e2
+      | Unop (op, e) -> eval_unop op e
       | _ -> failwith "case not implemented in eval"
     in
-  
-    let rec exec (i: instr): unit = match i with
-      | Print e -> Printf.printf "%d\n" (evali e)
+    let rec exec i = 
+      match i with
+      | Print e -> 
+        begin
+          match eval e with
+          | VInt n -> Printf.printf "%d\n" n
+          | VBool b -> Printf.printf "%s\n" (if b then "true" else "false")
+          | _ -> failwith "Print error : can't print other type than int or bool." 
+        end
       | _ -> failwith "case not implemented in exec"
+
     and exec_seq s = 
       List.iter exec s
     in
-
     exec_seq s
   in
-  
   exec_seq p.main (Hashtbl.create 1)
