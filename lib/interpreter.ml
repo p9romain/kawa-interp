@@ -14,13 +14,13 @@ exception Error of string
 exception Return of value
 
 let exec_prog p =
-  let env = Hashtbl.create 16 in
-  List.iter (fun (x, _) -> Hashtbl.add env x Null) p.globals;
+  let global_env = Hashtbl.create 1 in
+  List.iter (fun (x, _) -> Hashtbl.add global_env x Null) p.globals;
   
   let rec eval_call f this args =
     failwith "eval_call not implemented"
 
-  and exec_seq s lenv =
+  and exec_seq s local_env =
     let rec eval_unop op e = 
       match op with
       | Opp ->
@@ -127,6 +127,17 @@ let exec_prog p =
       | Bool b -> VBool b
       | Binop (op, e1, e2) -> eval_binop op e1 e2
       | Unop (op, e) -> eval_unop op e
+      | Get m ->
+        begin
+          match m with
+          | Var s ->
+            begin 
+              match Hashtbl.find_opt global_env s with
+              | Some v -> v
+              | None -> failwith ("unbound value error : '" ^ s ^ "' is not declared.")
+            end
+          | _ -> failwith "case not implemented in eval::get"
+        end
       | _ -> failwith "case not implemented in eval"
     in
     let rec exec i = 
@@ -136,7 +147,13 @@ let exec_prog p =
           match eval e with
           | VInt n -> Printf.printf "%d\n" n
           | VBool b -> Printf.printf "%s\n" (if b then "true" else "false")
-          | _ -> failwith "Print error : can't print other type than int or bool." 
+          | _ -> failwith "type error : can't print other type than int or bool." 
+        end
+      | Set (m, e) ->
+        begin
+          match m with
+          | Var s -> Hashtbl.add global_env s (eval e)
+          | _ -> failwith "case not implemented in exec::set"
         end
       | _ -> failwith "case not implemented in exec"
 

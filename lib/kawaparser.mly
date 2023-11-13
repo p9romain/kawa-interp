@@ -9,7 +9,7 @@
 %token <string> IDENT
 %token <Kawa.typ> TYPE
 
-%token LPAR RPAR BEGIN END SEMI
+%token LPAR RPAR BEGIN END SEMI SET
 
 %token U_MINUS
 %token PLUS MINUS TIMES SLASH MOD
@@ -52,6 +52,7 @@ variable:
 
 instruction:
 | PRINT LPAR e=expression RPAR SEMI { Print(e) }
+| i=IDENT SET e=expression SEMI { Set(Var(i), e) }
 ;
 
 expression:

@@ -47,6 +47,8 @@ rule token = parse
   | integers as n { INT(int_of_string n) }
   | ident as id { keyword_or_ident id }
 
+  | "=" { SET }
+
   | "&&" { AND }
   | "||" { OR  }
   | "!"  { NOT }
