@@ -121,6 +121,19 @@ let exec_prog p =
             end
           | _ -> failwith "case not implemented in exec::set"
         end
+      | While (e, s) ->
+          begin
+            match eval e with
+            | VBool b ->
+              if not b then
+                begin
+                  exec_seq s local_env ;
+                  exec_seq [ While(e, s) ] local_env
+                end
+              else
+                ()
+            | _ -> failwith "type error: can't evaluate anything else than a boolean as a condition test"
+          end
       | Cond c -> exec_cond c
       | _ -> failwith "case not implemented in exec"
 

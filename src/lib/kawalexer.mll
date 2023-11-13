@@ -7,21 +7,26 @@
 
   let keyword_or_ident =
   let h = Hashtbl.create 17 in
-  List.iter (fun (s, k) -> Hashtbl.add h s k)
-    [ "print",    PRINT;
-      "main",     MAIN;
+  let () = List.iter (fun (s, k) -> Hashtbl.add h s k)
+    [ 
+      "print", PRINT ;
+      "main",  MAIN ;
 
-      "true",     BOOL(true);
-      "false",    BOOL(false);
+      "true",  BOOL(true) ;
+      "false", BOOL(false) ;
 
-      "var",      VAR;
-      "int",      TYPE(TInt);
-      "bool",     TYPE(TBool);
-      "void",     TYPE(TVoid);
+      "var",   VAR ;
+      "int",   TYPE(TInt) ;
+      "bool",  TYPE(TBool) ;
+      "void",  TYPE(TVoid) ;
 
-      "if",       IF;
-      "else",     ELSE
-    ] ;
+      "if",    IF ;
+      "else",  ELSE ;
+
+      "while", WHILE ;
+      "for",   FOR
+    ]
+  in
   fun s ->
     match Hashtbl.find_opt h s with
     | Some k -> k

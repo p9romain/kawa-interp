@@ -19,6 +19,7 @@
 
 %token VAR
 %token IF ELSE
+%token WHILE FOR
 
 %token MAIN
 %token PRINT
@@ -53,9 +54,14 @@ variable:
 ;
 
 instruction:
-| PRINT LPAR e=expression RPAR SEMI { Print(e)       }
-| i=IDENT SET e=expression SEMI     { Set(Var(i), e) }
-| c=condition                       { Cond(c)        }
+| PRINT LPAR e=expression RPAR SEMI                             
+    { Print(e)       }
+| i=IDENT SET e=expression SEMI                                 
+    { Set(Var(i), e) }
+| WHILE LPAR e=expression RPAR BEGIN body=list(instruction) END 
+    { While(e, body) }
+| c=condition                                                   
+    { Cond(c)        }
 ;
 
 condition:
