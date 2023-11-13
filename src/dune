@@ -1,0 +1,6 @@
+(executable
+  (name kawaii)
+  (libraries kawa_lib)
+  (promote (until-clean))
+  (flags ())
+)

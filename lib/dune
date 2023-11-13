@@ -1,0 +1,14 @@
+(library
+  (name kawa_lib)
+  (flags ())
+)
+
+(ocamllex
+  (modules kawalexer)
+)
+
+(menhir
+  (modules kawaparser)
+  (flags --explain --dump)
+  (infer true)
+)
