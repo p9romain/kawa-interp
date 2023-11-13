@@ -50,13 +50,17 @@ type instr =
   (* Écriture dans une variable ou un attribut *)
   | Set    of mem_access * expr
   (* Structures de contrôle usuelles *)
-  | If     of expr * seq * seq
+  | Cond   of cond
+  (* | For    of expr * expr * expr * seq *)
   | While  of expr * seq
   (* Fin d'une fonction *)
   | Return of expr
   (* Expression utilisée comme instruction *)
   | Expr   of expr
-
+and cond =
+  | If        of expr * seq
+  | If_Else   of expr * seq * cond
+  | Else      of seq
 and seq = instr list
 
 (* Définition de méthode 

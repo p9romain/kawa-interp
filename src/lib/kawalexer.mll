@@ -18,11 +18,15 @@
       "int",      TYPE(TInt);
       "bool",     TYPE(TBool);
       "void",     TYPE(TVoid);
+
+      "if",       IF;
+      "else",     ELSE
     ] ;
   fun s ->
-    try  Hashtbl.find h s
-    with Not_found -> IDENT(s)
-        
+    match Hashtbl.find_opt h s with
+    | Some k -> k
+    | None -> IDENT(s)
+    
 }
 
 let digit = ['0'-'9']

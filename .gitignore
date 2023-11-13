@@ -2,5 +2,5 @@ TODO.md
 tests
 _build/
 _opam/
-*.exe
+rapport.md
 *.pdf

@@ -17,8 +17,10 @@
 %token NOT AND OR
 %token LE LT GE GT EQ NEQ
 
-%token MAIN
 %token VAR
+%token IF ELSE
+
+%token MAIN
 %token PRINT
 %token EOF
 
@@ -51,20 +53,30 @@ variable:
 ;
 
 instruction:
-| PRINT LPAR e=expression RPAR SEMI { Print(e) }
-| i=IDENT SET e=expression SEMI { Set(Var(i), e) }
+| PRINT LPAR e=expression RPAR SEMI { Print(e)       }
+| i=IDENT SET e=expression SEMI     { Set(Var(i), e) }
+| c=condition                       { Cond(c)        }
+;
+
+condition:
+| IF LPAR e=expression RPAR BEGIN body=list(instruction) END
+    { If(e, body) }
+| IF LPAR e=expression RPAR BEGIN body1=list(instruction) END ELSE BEGIN body2=list(instruction) END
+    { If_Else(e, body1, Else(body2)) }
+| IF LPAR e=expression RPAR BEGIN body=list(instruction) END ELSE c=condition
+    { If_Else(e, body, c) }
 ;
 
 expression:
-| n=INT                                   { Int(n)            }
-| b=BOOL                                  { Bool(b)           }
+| n=INT                              { Int(n)            }
+| b=BOOL                             { Bool(b)           }
 
-| i=IDENT                                 { Get(Var(i))       }
+| i=IDENT                            { Get(Var(i))       }
 
-| LPAR e=expression RPAR                  { e                 }
+| LPAR e=expression RPAR             { e                 }
 
-| e1=expression op=bop e2=expression      { Binop(op, e1, e2) }
-| op=uop e=expression                     { Unop(op, e)       }
+| e1=expression op=bop e2=expression { Binop(op, e1, e2) }
+| op=uop e=expression                { Unop(op, e)       }
 ;
 
 
