@@ -10,8 +10,14 @@
   List.iter (fun (s, k) -> Hashtbl.add h s k)
     [ "print",    PRINT;
       "main",     MAIN;
+
       "true",     BOOL(true);
-      "false",    BOOL(false)
+      "false",    BOOL(false);
+
+      "var",      VAR;
+      "int",      TYPE(TInt);
+      "bool",     TYPE(TBool);
+      "void",     TYPE(TVoid);
     ] ;
   fun s ->
     try  Hashtbl.find h s
@@ -27,7 +33,9 @@ let integers = ( ['1'-'9'] digit+ ) | digit
 let exponent = ['e' 'E'] '-'? integers
 let floats = decimals | ( integers decimals ) | ( integers decimals? exponent )
 
-let ident = ['a'-'z' '_'] (['a'-'z' 'A'-'Z'] | '_' | digit)*
+let alpha = ['a'-'z' 'A'-'Z']
+let ident = ['a'-'z' '_'] (alpha | '_' | digit)*
+let type_str = "int" | "bool" | "void" | ident
   
 rule token = parse
   | ['\n']           { new_line lexbuf; token lexbuf }

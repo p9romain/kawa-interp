@@ -27,13 +27,13 @@ let exec_prog p =
         begin
           match eval e with
           | VInt n -> VInt (-n)
-          | _ -> assert false
+          | _ -> failwith "type error : '-' unary operator can only be use on integers"
         end
       | Not ->
         begin
           match eval e with
           | VBool b -> VBool (not b)
-          | _ -> assert false
+          | _ -> failwith "type error : '!' unary operator can only be use on booleans"
         end
       | _ -> assert false
 
@@ -43,81 +43,81 @@ let exec_prog p =
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VInt (n1 + n2)
-          | _ -> assert false
+          | _ -> failwith "type error : '+' binary operator can only be use on integers"
         end
       | Sub ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VInt (n1 - n2)
-          | _ -> assert false
+          | _ -> failwith "type error : '-' binary operator can only be use on integers"
         end
       | Mul ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VInt (n1 * n2)
-          | _ -> assert false
+          | _ -> failwith "type error : '*' binary operator can only be use on integers"
         end
       | Div ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VInt (n1 / n2)
-          | _ -> assert false
+          | _ -> failwith "type error : '/' binary operator can only be use on integers"
         end
       | Mod ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VInt (n1 mod n2)
-          | _ -> assert false
+          | _ -> failwith "type error : '%' binary operator can only be use on integers"
         end
       | Le ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool (n1 <= n2)
-          | _ -> assert false
+          | _ -> failwith "type error : '<=' binary operator can only be use on integers"
         end
       | Lt ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool (n1 < n2)
-          | _ -> assert false
+          | _ -> failwith "type error : '<' binary operator can only be use on integers"
         end
       | Ge ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool (n1 >= n2)
-          | _ -> assert false
+          | _ -> failwith "type error : '>=' binary operator can only be use on integers"
         end
       | Gt ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool (n1 > n2)
-          | _ -> assert false
+          | _ -> failwith "type error : '>' binary operator can only be use on integers"
         end
       | Eq ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool (n1 = n2)
           | VBool b1, VBool b2 -> VBool (b1 = b2)
-          | _ -> assert false
+          | _ -> failwith "type error : '==' binary operator can only be use on integers and booleans"
         end
       | Neq ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool (n1 <> n2)
           | VBool b1, VBool b2 -> VBool (b1 <> b2)
-          | _ -> assert false
+          | _ -> failwith "type error : '!=' binary operator can only be use on integers and booleans"
         end
       | And ->
         begin
           match eval e1, eval e2 with
           | VBool b1, VBool b2 -> VBool (b1 && b2)
-          | _ -> assert false
+          | _ -> failwith "type error : '&&' binary operator can only be use on booleans"
         end
       | Or ->
         begin
           match eval e1, eval e2 with
           | VBool b1, VBool b2 -> VBool (b1 || b2)
-          | _ -> assert false
+          | _ -> failwith "type error : '||' binary operator can only be use on booleans"
         end
       | _ -> assert false
 

@@ -13,25 +13,31 @@ let add_env l tenv =
   List.fold_left (fun env (x, t) -> Env.add x t env) tenv l
 
 let typecheck_prog p =
-  let tenv = add_env p.globals Env.empty in
-
+  let tenv = add_env p.globals Env.empty 
+  in
   let rec check e typ tenv =
     let typ_e = type_expr e tenv in
-    if typ_e <> typ then type_error typ_e typ
+    if typ_e <> typ then 
+      type_error typ_e typ
 
-  and type_expr e tenv = match e with
+  and type_expr e tenv = 
+    match e with
     | Int _  -> TInt
+    | Bool _ -> TBool
     | _ -> failwith "case not implemented in type_expr"
 
-  and type_mem_access m tenv = match m with
+  and type_mem_access m tenv = 
+    match m with
     | _ -> failwith "case not implemented in type_mem_access"
   in
-
-  let rec check_instr i ret tenv = match i with
-    | Print e -> check e TInt tenv
+  let rec check_instr i ret tenv = 
+    match i with
+    | Print e -> ()
+        (* try check e TInt tenv with _ -> ()
+        try check e TBool tenv with _ -> () *)
     | _ -> failwith "case not implemented in check_instr"
+
   and check_seq s ret tenv =
     List.iter (fun i -> check_instr i ret tenv) s
   in
-
   check_seq p.main TVoid tenv

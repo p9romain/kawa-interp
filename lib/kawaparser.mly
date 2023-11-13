@@ -2,12 +2,12 @@
 
   open Lexing
   open Kawa
-
 %}
 
 %token <int> INT
 %token <bool> BOOL
 %token <string> IDENT
+%token <Kawa.typ> TYPE
 
 %token LPAR RPAR BEGIN END SEMI
 
@@ -18,6 +18,7 @@
 %token LE LT GE GT EQ NEQ
 
 %token MAIN
+%token VAR
 %token PRINT
 %token EOF
 
@@ -41,8 +42,12 @@
 %%
 
 program:
-| MAIN BEGIN main=list(instruction) END EOF
-    { {classes=[]; globals=[]; main} }
+| var=list(variable) MAIN BEGIN body=list(instruction) END EOF
+    { { classes = [] ; globals = var ; main = body } }
+;
+
+variable:
+| VAR t=TYPE i=IDENT SEMI { (i, t) }
 ;
 
 instruction:
@@ -52,7 +57,11 @@ instruction:
 expression:
 | n=INT                                   { Int(n)            }
 | b=BOOL                                  { Bool(b)           }
+
+| i=IDENT                                 { Get(Var(i))       }
+
 | LPAR e=expression RPAR                  { e                 }
+
 | e1=expression op=bop e2=expression      { Binop(op, e1, e2) }
 | op=uop e=expression                     { Unop(op, e)       }
 ;
