@@ -35,7 +35,6 @@ let exec_prog p =
           | VBool b -> VBool (not b)
           | _ -> failwith "type error: negative operator can only be use on booleans"
         end
-      | _ -> assert false
 
     and eval_binop op e1 e2 =
       let num_to_num op =
@@ -77,7 +76,6 @@ let exec_prog p =
         end
       | And -> bool_to_bool ( && )
       | Or -> bool_to_bool ( || )
-      | _ -> assert false
 
     and eval_new s el =
       let o = { cls = s ; fields = Hashtbl.create 1 } in
@@ -132,12 +130,21 @@ let exec_prog p =
                   | None -> failwith ("unbound value error: '" ^ s ^ "' is not declared in the scope.")
                 end
             end
-          | _ -> failwith "case not implemented in eval::get"
+          | Field (e, s) ->
+            begin
+              match eval e with
+              | VObj o -> 
+                begin
+                  match Hashtbl.find_opt o.fields s with
+                  | Some v -> v
+                  | None -> failwith ("unbound value error: can't acces the field '" ^ s ^ "' in the object of type '" ^ o.cls ^ "'.")
+                end
+              | _ -> failwith "type error: can't access to a field of a non-object"
+            end
         end
       | This -> Null (* TODO *)
       | New s -> eval_new s None
       | NewCstr (s, el) -> eval_new s (Some el)
-      | _ -> assert false
     in
     let rec exec i = 
       match i with
@@ -162,7 +169,17 @@ let exec_prog p =
                   | None -> failwith ("unbound value error: '" ^ s ^ "' is not declared in the scope.")
                 end
             end
-          | _ -> failwith "case not implemented in exec::set"
+          | Field (e', s) ->
+            begin
+              match eval e' with
+              | VObj o -> 
+                begin
+                  match Hashtbl.find_opt o.fields s with
+                  | Some _ -> Hashtbl.add o.fields s (eval e)
+                  | None -> failwith ("unbound value error: can't acces the field '" ^ s ^ "' in the object of type '" ^ o.cls ^ "'.")
+                end
+              | _ -> failwith "type error: can't access to a field of a non-object"
+            end
         end
       | While (e, s) ->
         begin
@@ -205,7 +222,6 @@ let exec_prog p =
         end
       | Else s ->
         exec_seq s local_env
-      | _ -> assert false
 
     in
     List.iter exec s

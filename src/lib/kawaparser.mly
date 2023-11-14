@@ -71,9 +71,11 @@ class_def:
 
 variable:
 | VAR t=TYPE i=IDENT SEMI { (i, t) }
+| VAR t=IDENT i=IDENT SEMI { (i, TClass(t)) }
 ;
 attribute:
 | ATTR t=TYPE i=IDENT SEMI { (i, t) }
+| ATTR t=IDENT i=IDENT SEMI { (i, TClass(t)) }
 ;
 
 
