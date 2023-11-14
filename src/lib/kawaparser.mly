@@ -2,6 +2,7 @@
 
   open Lexing
   open Kawa
+
 %}
 
 %token <int> INT
@@ -9,26 +10,25 @@
 %token <string> IDENT
 %token <Kawa.typ> TYPE
 
-%token LPAR RPAR BEGIN END SEMI SET
+%token LPAR RPAR BEGIN END SEMI
 
-%token U_MINUS
-%token PLUS MINUS TIMES SLASH MOD
+%token PLUS U_MINUS MINUS TIMES SLASH MOD
 
 %token NOT AND OR
 %token LE LT GE GT EQ NEQ
 
-%token VAR NULL
-%token INTERO TWO_PT
-%token IF ELSE
+%token VAR SET
+
+%token INTERO TWO_PT IF ELSE
 %token DO WHILE FOR
+
+%token NEW CLASS EXTENDS
+%token THIS DOT ATTR
+%token METHOD COMMA RETURN
 
 %token MAIN
 %token PRINT
 %token EOF
-
-%token NEW CLASS EXTENDS
-%token ATTR DOT THIS
-%token METHOD COMMA RETURN
 
 
 

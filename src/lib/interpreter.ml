@@ -156,7 +156,6 @@ let exec_prog p =
       match e with
       | Int n  -> VInt n
       | Bool b -> VBool b
-      | Null -> VNull
       | Unop (op, e) -> eval_unop op e
       | Binop (op, e1, e2) -> eval_binop op e1 e2
       | TerCond(e1, e2, e3) ->

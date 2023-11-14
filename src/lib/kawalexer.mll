@@ -19,7 +19,6 @@
       "int",       TYPE(TInt) ;
       "bool",      TYPE(TBool) ;
       "void",      TYPE(TVoid) ;
-      "null",      NULL ;
 
       "if",        IF ;
       "else",      ELSE ;

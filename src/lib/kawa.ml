@@ -25,7 +25,6 @@ type expr =
   (* Arithmetic *)
   | Int      of int
   | Bool     of bool
-  | Null
   | Unop     of unop * expr
   | Binop    of binop * expr * expr
   | TerCond  of expr * expr * expr
