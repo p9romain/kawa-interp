@@ -27,7 +27,8 @@ let () =
        For exemple, if A has an attribute 'a', and B inherits from A and has an attribute 'b', then in B.attributes
        there are 'a' and 'b', literally.
 
-       If I understood well my OCamL class, it will be memory share so it isn't an issue.(im waiting for) 
+       If I understood well my OCamL class, it will be memory share so it isn't an issue.(im waiting for something to try
+       out if it's true) 
     *)
 
     (* Get all the methods or attributes we need to inherit *)
