@@ -161,17 +161,21 @@ let exec_prog p =
         begin
           match o with
           | VObj o ->
-            let rec find l f x =
+            let rec find l f x b =
               match l with
-              | [] -> failwith ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
+              | [] -> 
+                if b then
+                  failwith ("unbound value error: '" ^ x ^ "' class is not declared in the scope.")
+                else
+                  failwith ("unbound value error: can't find the constructor statement to initialize the object")
               | e :: ll ->
                 if f e = x then
                   e
                 else
-                  find ll f x
+                  find ll f x b
             in
-            let c = find p.classes (fun c -> c.class_name) o.cls in
-            let f = find c.methods (fun m -> m.method_name) "constructor" in
+            let c = find p.classes (fun c -> c.class_name) o.cls true in
+            let f = find c.methods (fun m -> m.method_name) "constructor" false in
             let args = Hashtbl.create 1 in
             List.iter2 (fun e (x, _) -> Hashtbl.add args x (eval e) ) el f.params ;
             eval_call f o args ;
@@ -182,17 +186,21 @@ let exec_prog p =
         begin
           match eval e with
           | VObj o ->
-            let rec find l f x =
+            let rec find l f x b =
               match l with
-              | [] -> failwith ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
+              | [] -> 
+                if b then
+                  failwith ("unbound value error: '" ^ x ^ "' class is not declared in the scope.")
+                else
+                  failwith ("unbound value error: '" ^ x ^ "' method is not declared in the class '" ^ o.cls ^ "'.")
               | e :: ll ->
                 if f e = x then
                   e
                 else
-                  find ll f x
+                  find ll f x b
             in
-            let c = find p.classes (fun c -> c.class_name) o.cls in
-            let f = find c.methods (fun m -> m.method_name) s in
+            let c = find p.classes (fun c -> c.class_name) o.cls true in
+            let f = find c.methods (fun m -> m.method_name) s false in
             let args = Hashtbl.create 1 in
             List.iter2 (fun e (x, _) -> Hashtbl.add args x (eval e) ) el f.params ;
             eval_call f o args
