@@ -44,32 +44,39 @@ let exec_prog p =
           | _ -> failwith "type error: integer binary operator can only be use on integers"
       in let num_to_bool op =
         match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VBool (n1 <= n2)
+          | VInt n1, VInt n2 -> VBool (op n1 n2)
           | _ -> failwith "type error: integer binary operator can only be use on integers"
-      in let comp op =
-        match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VBool (n1 = n2)
-          | VBool b1, VBool b2 -> VBool (b1 = b2)
-          | _ -> failwith "type error: comparison can only be use on integers and booleans"
       in let bool_to_bool op =
         match eval e1, eval e2 with
-          | VBool b1, VBool b2 -> VBool (b1 && b2)
+          | VBool b1, VBool b2 -> VBool (op b1 b2)
           | _ -> failwith "type error: boolean binary operator can only be use on booleans"
       in
       match op with
-      | Add -> num_to_num (+)
-      | Sub -> num_to_num (-)
+      | Add -> num_to_num ( + )
+      | Sub -> num_to_num ( - )
       | Mul -> num_to_num ( * )
-      | Div -> num_to_num (/)
-      | Mod -> num_to_num (mod)
-      | Le -> num_to_bool (<=)
-      | Lt -> num_to_bool (<)
-      | Ge -> num_to_bool (>=)
-      | Gt -> num_to_bool (>)
-      | Eq -> comp (=)
-      | Neq -> comp (<>)
-      | And -> bool_to_bool (&&)
-      | Or -> bool_to_bool (||)
+      | Div -> num_to_num ( / )
+      | Mod -> num_to_num ( mod )
+      | Le -> num_to_bool ( <= )
+      | Lt -> num_to_bool ( < )
+      | Ge -> num_to_bool ( >= )
+      | Gt -> num_to_bool ( > )
+      | Eq ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool (n1 = n2)
+          | VBool b1, VBool b2 -> VBool (b1 = b2)
+          | _ -> failwith "type error: comparison can only be use on integers and booleans"
+        end
+      | Neq ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool (n1 <> n2)
+          | VBool b1, VBool b2 -> VBool (b1 <> b2)
+          | _ -> failwith "type error: comparison can only be use on integers and booleans"
+        end
+      | And -> bool_to_bool ( && )
+      | Or -> bool_to_bool ( || )
       | _ -> assert false
 
     and eval e =
@@ -93,6 +100,16 @@ let exec_prog p =
                 end
             end
           | _ -> failwith "case not implemented in eval::get"
+        end
+      | TerCond(e1, e2, e3) ->
+        begin
+          match eval e1 with
+          | VBool b ->
+            if b then
+              eval e2
+            else
+              eval e3 
+          | _ -> failwith "type error: can't evaluate anything else than a boolean as a condition test" 
         end
       | _ -> assert false
     in
@@ -125,7 +142,7 @@ let exec_prog p =
           begin
             match eval e with
             | VBool b ->
-              if not b then
+              if b then
                 begin
                   exec_seq s local_env ;
                   exec_seq [ While(e, s) ] local_env

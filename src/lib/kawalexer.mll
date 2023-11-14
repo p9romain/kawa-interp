@@ -75,6 +75,9 @@ rule token = parse
   | "/" { SLASH }
   | "%" { MOD }
 
+  | "?" { INTERO }
+  | ":" { TWO_PT }
+
   | ";" { SEMI }
   | "(" { LPAR }
   | ")" { RPAR }

@@ -24,10 +24,11 @@ type binop = Add | Sub | Mul | Div | Mod
 (* Expressions *)
 type expr =
   (* Base arithmétique *)
-  | Int    of int
-  | Bool   of bool
-  | Unop   of unop * expr
-  | Binop  of binop * expr * expr
+  | Int      of int
+  | Bool     of bool
+  | Unop     of unop * expr
+  | Binop    of binop * expr * expr
+  | TerCond  of expr * expr * expr
   (* Accès à une variable ou un attribut *)
   | Get      of mem_access
   (* Objet courant *)

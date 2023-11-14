@@ -18,6 +18,7 @@
 %token LE LT GE GT EQ NEQ
 
 %token VAR
+%token INTERO TWO_PT
 %token IF ELSE
 %token WHILE FOR
 
@@ -26,6 +27,8 @@
 %token EOF
 
 
+
+%right INTERO TWO_PT
 
 %left OR
 %left AND
@@ -83,6 +86,9 @@ expression:
 
 | e1=expression op=bop e2=expression { Binop(op, e1, e2) }
 | op=uop e=expression                { Unop(op, e)       }
+
+| e1=expression INTERO e2=expression TWO_PT e3=expression
+    { TerCond(e1, e2, e3) }
 ;
 
 
