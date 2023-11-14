@@ -9,31 +9,34 @@
   let h = Hashtbl.create 17 in
   let () = List.iter (fun (s, k) -> Hashtbl.add h s k)
     [ 
-      "print",     PRINT ;
-      "main",      MAIN ;
-
       "true",      BOOL(true) ;
       "false",     BOOL(false) ;
 
-      "var",       VAR ;
       "int",       TYPE(TInt) ;
       "bool",      TYPE(TBool) ;
       "void",      TYPE(TVoid) ;
 
+      "var",       VAR ;
+
       "if",        IF ;
       "else",      ELSE ;
 
-      "while",     WHILE ;
       "do",        DO ;
+      "while",     WHILE ;
       "for",       FOR ;
 
       "new",       NEW ;
       "class",     CLASS ;
+      "extends",   EXTENDS ;
+
       "this",      THIS ;
       "attribute", ATTR ;
+
       "method",    METHOD ;
       "return",    RETURN ;
-      "extends",   EXTENDS
+
+      "main",      MAIN ;
+      "print",     PRINT
     ]
   in
   fun s ->
@@ -51,9 +54,7 @@ let integers = ( ['1'-'9'] digit+ ) | digit
 let exponent = ['e' 'E'] '-'? integers
 let floats = decimals | ( integers decimals ) | ( integers decimals? exponent )
 
-let alpha = ['a'-'z' 'A'-'Z']
-let ident = ['a'-'z' '_'] (alpha | '_' | digit)*
-let type_str = "int" | "bool" | "void" | ident
+let ident = ['a'-'z' '_'] (['a'-'z' 'A'-'Z'] | '_' | digit)*
   
 rule token = parse
   | ['\n']           { new_line lexbuf; token lexbuf }
@@ -65,11 +66,21 @@ rule token = parse
   | integers as n { INT(int_of_string n) }
   | ident as id { keyword_or_ident id }
 
-  | "=" { SET }
+  | "("  { LPAR }
+  | ")"  { RPAR }
+  | "{"  { BEGIN }
+  | "}"  { END }
+  | ";"  { SEMI }
 
+  | "+"  { PLUS }
+  | "-"  { MINUS }
+  | "*"  { TIMES }
+  | "/"  { SLASH }
+  | "%"  { MOD }
+
+  | "!"  { NOT }
   | "&&" { AND }
   | "||" { OR  }
-  | "!"  { NOT }
 
   | "<=" { LE }
   | "<"  { LT }
@@ -78,23 +89,13 @@ rule token = parse
   | "==" { EQ }
   | "!=" { NEQ }
 
-  | "+" { PLUS }
-  | "-" { MINUS }
-  | "*" { TIMES }
-  | "/" { SLASH }
-  | "%" { MOD }
+  | "="  { SET }
 
-  | "?" { INTERO }
-  | ":" { TWO_PT }
-
-  | "." { DOT }
-  | "," { COMMA }
-
-  | ";" { SEMI }
-  | "(" { LPAR }
-  | ")" { RPAR }
-  | "{" { BEGIN }
-  | "}" { END }
+  | "?"  { INTERO }
+  | ":"  { TWO_PT }
+  
+  | "."  { DOT }
+  | ","  { COMMA }
 
   | _   { raise (Error ("unknown character : " ^ lexeme lexbuf)) }
   | eof { EOF }

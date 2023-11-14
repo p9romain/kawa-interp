@@ -68,6 +68,7 @@ let exec_prog p =
   in
 
   let rec exec_meth f this args =
+    (* Using a caps because i'm the only on who is allowed to do it (privelege) *)
     Hashtbl.add args "This" (VObj this) ;
     Hashtbl.add args "Return" VNull ;
     List.iter (fun (x, _) -> Hashtbl.add args x VNull) f.locals ;
