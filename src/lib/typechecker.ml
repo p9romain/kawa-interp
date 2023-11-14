@@ -160,10 +160,28 @@ let typecheck_prog p =
       () 
     | Set (m, e) ->
       check e (type_mem_access m tenv) tenv
-    | Cond c -> check_cond c TVoid tenv
+    | Cond c -> check_cond c ret tenv
+    | While (e, s) ->
+      check e TBool tenv ;
+      check_seq s ret tenv ;
+    | DoWhile (s, w) ->
+      check_seq s ret tenv ;
+      check_instr w ret tenv ;
+    | Return e ->
+      check e ret tenv ;
+    | Expr e ->
+      check e TVoid tenv ;
   and check_cond c ret tenv =
     match c with
-    | _ -> ()
+    | If (e, s) ->
+      check e TBool tenv ;
+      check_seq s ret tenv ;
+    | If_Else (e, s, c) ->
+      check e TBool tenv ;
+      check_seq s ret tenv ;
+      check_cond c ret tenv ;
+    | Else s ->
+      check_seq s ret tenv ;
   and check_seq s ret tenv =
     List.iter (fun i -> check_instr i ret tenv) s
   in
