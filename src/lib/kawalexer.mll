@@ -24,6 +24,7 @@
       "else",  ELSE ;
 
       "while", WHILE ;
+      "do",    DO ;
       "for",   FOR
     ]
   in

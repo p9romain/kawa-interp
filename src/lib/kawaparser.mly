@@ -20,7 +20,7 @@
 %token VAR
 %token INTERO TWO_PT
 %token IF ELSE
-%token WHILE FOR
+%token DO WHILE FOR
 
 %token MAIN
 %token PRINT
@@ -61,6 +61,8 @@ instruction:
     { Print(e)       }
 | i=IDENT SET e=expression SEMI                                 
     { Set(Var(i), e) }
+| DO BEGIN body=list(instruction) END WHILE LPAR e=expression RPAR SEMI
+    { DoWhile(body, While(e, body)) }
 | WHILE LPAR e=expression RPAR BEGIN body=list(instruction) END 
     { While(e, body) }
 | c=condition                                                   

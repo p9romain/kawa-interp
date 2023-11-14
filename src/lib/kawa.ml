@@ -54,6 +54,7 @@ type instr =
   | Cond   of cond
   (* | For    of expr * expr * expr * seq *)
   | While  of expr * seq
+  | DoWhile of seq * instr
   (* Fin d'une fonction *)
   | Return of expr
   (* Expression utilisée comme instruction *)
