@@ -4,13 +4,14 @@ type value =
   | VInt  of int
   | VBool of bool
   | VObj  of obj
-  | Null
+  | VNull
 and obj = {
   cls:    string;
   fields: (string, value) Hashtbl.t;
 }
 
 exception Error of string
+exception Return of value
 
 let rec string_of_obj o =
   Printf.sprintf "Object<%s>(%s)" o.cls (Hashtbl.fold 
@@ -21,7 +22,7 @@ let rec string_of_obj o =
           | VInt n -> string_of_int n
           | VBool b -> if b then "true" else "false"
           | VObj o' -> string_of_obj o'
-          | Null -> "null"
+          | VNull -> "null"
         )
       ) 
     ) 
@@ -29,7 +30,7 @@ let rec string_of_obj o =
 
 let exec_prog p =
   let global_env = Hashtbl.create 16 in
-  List.iter (fun (x, _) -> Hashtbl.add global_env x Null) p.globals;
+  List.iter (fun (x, _) -> Hashtbl.add global_env x VNull) p.globals;
 
   (* In order to get a working interpreter, I choose to implment inheritance like this :
 
@@ -37,7 +38,7 @@ let exec_prog p =
     if A has an attribute 'a', and B inherits from A and has an attribute 'b', then in B.attributes
     there are 'a' and 'b'
 
-    This isn't optimal, but is clearly fine for now. But it will be change. (probably.)
+    This isn't optimal, but it's clearly fine for now. But it will be change. (probably.)
    *)
 
   (* Get all the methods or attributes we need to inherit *)
@@ -47,7 +48,7 @@ let exec_prog p =
     | Some pt ->
       begin
         match List.find_opt ( fun cl -> cl.class_name = pt ) p.classes with
-        | None -> failwith ("unbound value error: '" ^ pt ^ "' class is not declared in the scope.")
+        | None -> failwith "Impossible : type_check work"
         | Some pt_cl ->
           (* If the child has a method/an attribute called 'A', and inherit from a class who also has 
             a method/an attribute called 'A', then we keep the child's one.
@@ -71,19 +72,15 @@ let exec_prog p =
   let rec exec_meth f this args =
     (* Use an upper letter because i'm the only one who is allowed to do it (privelege) *)
     Hashtbl.add args "This" (VObj this) ;
-    Hashtbl.add args "Return" Null ;
     (* Add local variables *)
-    List.iter (fun (x, _) -> Hashtbl.add args x Null) f.locals ;
+    List.iter (fun (x, _) -> Hashtbl.add args x VNull) f.locals ;
     (* Execute method *)
-    exec_seq f.code args ;
-    (* Get the result *)
-    let res = Hashtbl.find_opt args "Return" in
-    (* Destroy the local environment *)
-    Hashtbl.clear args ;
-    (* Return the result *)
-    match res with
-    | Some v -> v (* If unchanged (so void method), return Null *)
-    | None -> Null (* Impossible because always at Null at start (but security) *)
+    try
+      exec_seq f.code args ;
+      VNull
+    (* Get the result if there is a return *)
+    with Return e ->
+      e
 
   and exec_seq s local_env =
     let rec eval_unop op e =
@@ -92,42 +89,42 @@ let exec_prog p =
         begin
           match eval e with
           | VInt n -> VInt (-n)
-          | _ -> failwith "type error: opposite operator can only be use on integers"
+          | _ -> failwith "Impossible : type_check work"
         end
       | Not ->
         begin
           match eval e with
           | VBool b -> VBool (not b)
-          | _ -> failwith "type error: negative operator can only be use on booleans"
+          | _ -> failwith "Impossible : type_check work"
         end
 
     and eval_binop op e1 e2 =
-      (* Manage operators with two numbers, and return a number *)
-      let num_to_num op =
+      (* Manage operators with two integers, and return a integer *)
+      let int_to_int op =
          match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VInt (op n1 n2)
-          | _ -> failwith "type error: integer binary operator can only be use on integers"
+          | _ -> failwith "Impossible : type_check work"
       (* Manage operators with two booleans, and return a boolean *)
       in let bool_to_bool op =
         match eval e1, eval e2 with
           | VBool b1, VBool b2 -> VBool (op b1 b2) (* Call-by-need from OCamL *)
-          | _ -> failwith "type error: boolean binary operator can only be use on booleans"
-      (* Manage operators with two numbers, and return a boolean *)
-      in let num_to_bool op =
+          | _ -> failwith "Impossible : type_check work"
+      (* Manage operators with two integers, and return a boolean *)
+      in let int_to_bool op =
         match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool (op n1 n2)
-          | _ -> failwith "type error: integer binary operator can only be use on integers"
+          | _ -> failwith "Impossible : type_check work"
       in
       match op with
-      | Add -> num_to_num ( + )
-      | Sub -> num_to_num ( - )
-      | Mul -> num_to_num ( * )
-      | Div -> num_to_num ( / )
-      | Mod -> num_to_num ( mod )
-      | Le -> num_to_bool ( <= )
-      | Lt -> num_to_bool ( < )
-      | Ge -> num_to_bool ( >= )
-      | Gt -> num_to_bool ( > )
+      | Add -> int_to_int ( + )
+      | Sub -> int_to_int ( - )
+      | Mul -> int_to_int ( * )
+      | Div -> int_to_int ( / )
+      | Mod -> int_to_int ( mod )
+      | Le -> int_to_bool ( <= )
+      | Lt -> int_to_bool ( < )
+      | Ge -> int_to_bool ( >= )
+      | Gt -> int_to_bool ( > )
       | Eq ->
         begin
           match eval e1, eval e2 with
@@ -136,14 +133,17 @@ let exec_prog p =
           (* Two objects are equal if and only if they are physically the same object 
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 == o2 && o1 = o2)
-          | _ -> failwith "type error: comparison can only be use on integers and booleans"
+          | _ -> failwith "Impossible : type_check work"
         end
       | Neq ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool (n1 <> n2)
           | VBool b1, VBool b2 -> VBool (b1 <> b2)
-          | _ -> failwith "type error: comparison can only be use on integers and booleans"
+          (* Two objects are equal if and only if they are physically the same object 
+             And we have "(==) => (=)", so we have '&&' *)
+          | VObj o1, VObj o2 -> VBool (o1 != o2 && o1 <> o2)
+          | _ -> failwith "Impossible : type_check work"
         end
       | And -> bool_to_bool ( && )
       | Or -> bool_to_bool ( || )
@@ -151,16 +151,16 @@ let exec_prog p =
     and eval_call o m_name arg =
       (* Check if the class exists *)
       match List.find_opt (fun cl -> cl.class_name = o.cls ) p.classes with
-        | None -> failwith ("unbound value error: '" ^ o.cls ^ "' class is not declared in the scope.")
+        | None -> failwith "Impossible : type_check work"
         | Some c ->
           begin
             (* Check if the method in the class exists *)
             match List.find_opt (fun m -> m.method_name = m_name ) c.methods with
               | None -> 
                 if m_name = "constructor" then
-                  failwith ("unbound value error: can't find the constructor method to initialize the object")
+                  failwith "Impossible : type_check work"
                 else
-                  failwith ("unbound value error: '" ^ m_name ^ "' method is not declared in the class '" ^ o.cls ^ "'.")
+                  failwith "Impossible : type_check work"
               | Some m ->
                 let args = Hashtbl.create 5 in
                 (* Add all the parameters in the local environment *)
@@ -171,19 +171,20 @@ let exec_prog p =
 
     and eval e =
       match e with
-      | Int n  -> VInt n
+      | Int n -> VInt n
       | Bool b -> VBool b
+      | Null -> VNull
       | Unop (op, e) -> eval_unop op e
       | Binop (op, e1, e2) -> eval_binop op e1 e2
-      | TerCond(e1, e2, e3) ->
+      | TerCond (t, e1, e2) ->
         begin
-          match eval e1 with
+          match eval t with
           | VBool b ->
             if b then
-              eval e2
+              eval e1
             else
-              eval e3 
-          | _ -> failwith "type error: can't evaluate anything else than a boolean as a condition test" 
+              eval e2 
+          | _ -> failwith "Impossible : type_check work"
         end
       | Get m ->
         begin
@@ -198,7 +199,7 @@ let exec_prog p =
                   (* Check if the variable is in the global environment *)
                   match Hashtbl.find_opt global_env s with
                   | Some v -> v
-                  | None -> failwith ("unbound value error: '" ^ s ^ "' is not declared in the scope.")
+                  | None -> failwith "Impossible : type_check work"
                 end
             end
           | Field (e, s) ->
@@ -210,9 +211,9 @@ let exec_prog p =
                   (* Check if the field exists *)
                   match Hashtbl.find_opt o.fields s with
                   | Some v -> v
-                  | None -> failwith ("unbound value error: can't acces the field '" ^ s ^ "' in the object of type '" ^ o.cls ^ "'.")
+                  | None -> failwith "Impossible : type_check work"
                 end
-              | _ -> failwith "type error: can't access to a field of a non-object"
+              | _ -> failwith "Impossible : type_check work"
             end
         end
       | This ->
@@ -220,7 +221,7 @@ let exec_prog p =
           (* Check if the variable is in the local environment *)
           match Hashtbl.find_opt local_env "This" with
           | Some v -> v
-          | None -> failwith ("unbound value error: 'this' is not declared in the scope.\nMaybe you are outside a class ?")
+          | None -> failwith "Impossible : type_check work"
         end
       | New s ->
         (* Create a new object *)
@@ -228,10 +229,10 @@ let exec_prog p =
         begin
           (* Check if the class exists *)
           match List.find_opt (fun cl -> cl.class_name = s ) p.classes with
-          | None -> failwith ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
+          | None -> failwith "Impossible : type_check work"
           | Some c ->
-            (* Set up all the attributes to Null *)
-            List.iter (fun (x, _) -> Hashtbl.add o.fields x Null ) c.attributes ;
+            (* Set up all the attributes to VNull *)
+            List.iter (fun (x, _) -> Hashtbl.add o.fields x VNull ) c.attributes ;
             VObj o
         end
       | NewCstr (s, el) ->
@@ -245,7 +246,7 @@ let exec_prog p =
           (* Check if it's an object *)
           match eval e with
           | VObj o -> eval_call o s el
-          | _ -> failwith "type error: can't access to a field of a non-object"
+          | _ -> failwith "Impossible : type_check work"
         end
     in
     let rec exec i = 
@@ -256,7 +257,7 @@ let exec_prog p =
           | VInt n -> Printf.printf "%d\n" n
           | VBool b -> Printf.printf "%s\n" (if b then "true" else "false")
           | VObj o -> Printf.printf "%s\n" (string_of_obj o) 
-          | Null -> Printf.printf "null\n"
+          | VNull -> Printf.printf "null\n"
         end
       | Set (m, e) ->
         begin
@@ -271,7 +272,7 @@ let exec_prog p =
                   (* Check if the variable is in the global environment *)
                   match Hashtbl.find_opt global_env s with
                   | Some _ -> Hashtbl.add global_env s (eval e)
-                  | None -> failwith ("unbound value error: '" ^ s ^ "' is not declared in the scope.")
+                  | None -> failwith "Impossible : type_check work"
                 end
             end
           | Field (e', s) ->
@@ -283,9 +284,9 @@ let exec_prog p =
                   (* Check if the field exists *)
                   match Hashtbl.find_opt o.fields s with
                   | Some _ -> Hashtbl.add o.fields s (eval e)
-                  | None -> failwith ("unbound value error: can't acces the field '" ^ s ^ "' in the object of type '" ^ o.cls ^ "'.")
+                  | None -> failwith "Impossible : type_check work"
                 end
-              | _ -> failwith "type error: can't access to a field of a non-object"
+              | _ -> failwith "Impossible : type_check work"
             end
         end
       | While (e, s) ->
@@ -299,13 +300,13 @@ let exec_prog p =
               end
             else
               ()
-          | _ -> failwith "type error: can't evaluate anything else than a boolean as a condition test"
+          | _ -> failwith "Impossible : type_check work"
         end
       | DoWhile (s, w) ->
         exec_seq s local_env ; (* do *)
         exec_seq [ w ] local_env (* while *)
       | Cond c -> exec_cond c
-      | Return e -> Hashtbl.add local_env "Return" (eval e)
+      | Return e -> raise (Return (eval e))
       | Expr e -> 
         match eval e with
         | _ -> ()
@@ -318,7 +319,7 @@ let exec_prog p =
           | VBool b ->
             if b then
               exec_seq s local_env
-          | _ -> failwith "type error: can't evaluate anything else than a boolean as a condition test"
+          | _ -> failwith "Impossible : type_check work"
         end
       | If_Else (e, s, c) ->
         begin
@@ -328,7 +329,7 @@ let exec_prog p =
               exec_seq s local_env
             else
               exec_cond c
-          | _ -> failwith "type error: can't evaluate anything else than a boolean as a condition test"
+          | _ -> failwith "Impossible : type_check work"
         end
       | Else s ->
         exec_seq s local_env

@@ -12,7 +12,10 @@
       "true",      BOOL(true) ;
       "false",     BOOL(false) ;
 
+      "null",      NULL ;
+
       "int",       TYPE(TInt) ;
+      (* "float",     TYPE(TFloat) ; *)
       "bool",      TYPE(TBool) ;
       "void",      TYPE(TVoid) ;
 
@@ -44,6 +47,7 @@
     | Some k -> k
     | None -> IDENT(s)
     
+  let float_of_string f = 0.0 (* TODO *)
 }
 
 let digit = ['0'-'9']
@@ -64,6 +68,7 @@ rule token = parse
   | "/*"                { comment lexbuf; token lexbuf }
 
   | integers as n { INT(int_of_string n) }
+  | floats as f { FLOAT(float_of_string f) }
   | ident as id { keyword_or_ident id }
 
   | "("  { LPAR }

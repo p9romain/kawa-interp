@@ -6,7 +6,9 @@
 %}
 
 %token <int> INT
+%token <float> FLOAT
 %token <bool> BOOL
+%token NULL
 %token <string> IDENT
 %token <Kawa.typ> TYPE
 
@@ -98,6 +100,7 @@ arg:
 expression:
 | n=INT                                   { Int(n)            }
 | b=BOOL                                  { Bool(b)           }
+| NULL                                    { Null              }
 
 | THIS                                    { This              }
 | m=mem_access                            { Get(m)            }

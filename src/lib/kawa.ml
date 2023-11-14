@@ -1,7 +1,6 @@
 (**
    Kawa : a small object language inspired by Java
  *)
-
 (* Declared types (used by attributes, variables, args and return type in methods. *)
 type typ =
   | TVoid
@@ -10,10 +9,10 @@ type typ =
   | TClass of string
 
 let typ_to_string = function
-  | TVoid    -> "void"
-  | TInt     -> "int"
-  | TBool    -> "bool"
-  | TClass c -> c
+  | TVoid -> "void"
+  | TInt -> "int"
+  | TBool -> "bool"
+  | TClass s -> s
 
 (* Operators *)
 type unop  = Opp | Not
@@ -26,6 +25,7 @@ type expr =
   (* Arithmetic *)
   | Int      of int
   | Bool     of bool
+  | Null
   | Unop     of unop * expr
   | Binop    of binop * expr * expr
   | TerCond  of expr * expr * expr

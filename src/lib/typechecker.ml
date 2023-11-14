@@ -13,31 +13,159 @@ let add_env l tenv =
   List.fold_left (fun env (x, t) -> Env.add x t env) tenv l
 
 let typecheck_prog p =
-  let tenv = add_env p.globals Env.empty 
-  in
+  let tenv = add_env p.globals Env.empty in
+
   let rec check e typ tenv =
     let typ_e = type_expr e tenv in
-    if typ_e <> typ then 
-      type_error typ_e typ
+    if typ_e <> typ then type_error typ_e typ
 
   and type_expr e tenv = 
     match e with
-    | Int _  -> TInt
-    | Bool _ -> TBool
-    | _ -> failwith "case not implemented in type_expr"
+    | Int _ -> TInt      
+    | Bool _ -> TBool     
+    | Null -> TVoid
+    | Unop (op, e) ->
+      begin
+        match op with
+        | Opp -> TInt
+        | Not -> TBool
+      end
+    | Binop (op, e1, e2) ->
+      begin
+        match op with
+        | Add
+        | Sub 
+        | Mul 
+        | Div 
+        | Mod ->
+          check e1 TInt tenv ;
+          check e2 TInt tenv ;
+          TInt
+        | Le  
+        | Lt  
+        | Ge 
+        | Gt ->
+          check e1 TInt tenv ;
+          check e2 TInt tenv ;
+          TBool
+        | Eq  
+        | Neq ->
+          begin
+            let t1 = type_expr e1 tenv in 
+            let t2 = type_expr e2 tenv in
+            match t1, t2 with
+            | TInt, TInt
+            | TBool, TBool -> TBool
+            | TClass s1, TClass s2 -> 
+              if s1 = s2 then
+                TBool
+              else
+                type_error t1 t2
+            | TInt, _
+            | TBool, _
+            | TClass _, _-> type_error t1 t2
+            | _, _ -> error "type error : can't compare types who aren't integers, booleans or objects."
+          end
+        | And 
+        | Or ->
+            check e1 TBool tenv ;
+            check e2 TBool tenv ;
+            TBool
+      end 
+    | TerCond (t, e1, e2) ->
+      let () = check t TBool tenv in
+      let t1 = type_expr e1 tenv in 
+      let t2 = type_expr e2 tenv in
+      if t1 <> t2 then 
+       type_error t1 t2
+      else
+        t1
+    | Get m -> type_mem_access m tenv
+    | This ->
+      begin
+        match Env.find_opt "This" tenv with
+        | Some v -> v
+        | None -> error "unbound value error: can't access to 'this'.\nHint : are you inside a class ?"
+      end
+    | New s ->
+      begin
+        match List.find_opt (fun cl -> cl.class_name = s) p.classes with
+        | Some _ -> TClass s
+        | None -> error ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
+      end   
+    | NewCstr (s, el) -> 
+      check (MethCall(New s, "constructor", el)) TVoid tenv ;
+      begin
+        match List.find_opt (fun cl -> cl.class_name = s) p.classes with
+        | Some cl -> 
+          List.iter2 (fun e (_, t) -> check e t tenv) el cl.attributes ;
+          TClass s
+        | None -> error ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
+      end
+    | MethCall (e, s, el) ->
+      begin
+        match type_expr e tenv with
+        | TClass c ->
+          begin
+            match List.find_opt (fun cl -> cl.class_name = c) p.classes with
+            | Some cl -> 
+              begin
+                match List.find_opt (fun m -> m.method_name = s ) cl.methods with
+                | Some m -> 
+                  List.iter2 (fun e (_, t) -> check e t tenv) el m.params ;
+                  (* Create local environment with :
+                     global + this + params (we already checked type) + local var of the method *)
+                  let tenv = add_env ([("This", TClass c)] @ m.params @ m.locals @ p.globals) Env.empty in
+                  (* check if method is well-typed *)
+                  check_seq m.code m.return tenv ;
+                  m.return
+                | None -> error ("unbound value error: can't acces the method '" ^ s 
+                           ^ "' in the object of class '" ^ c ^ "'.")
+              end
+            | None -> error ("unbound value error: '" ^ c ^ "' class is not declared in the scope.")
+          end
+        | _ -> error "type error: can't access to a method of a non-class expression"
+      end
 
   and type_mem_access m tenv = 
     match m with
-    | _ -> failwith "case not implemented in type_mem_access"
-  in
-  let rec check_instr i ret tenv = 
+    | Var s -> 
+      begin
+        match Env.find_opt s tenv with
+        | Some t -> t
+        | None -> error ("unbound value error: '" ^ s ^ "' is not declared in the scope.")
+      end
+    | Field (e, attr) ->
+      begin
+        match type_expr e tenv with
+        | TClass c ->
+          begin
+            match List.find_opt (fun cl -> cl.class_name = c) p.classes with
+            | Some cl -> 
+              begin
+                match List.find_opt (fun (x, _) -> x = attr ) cl.attributes with
+                | Some (_, t) -> t
+                | None -> error ("unbound value error: can't acces the field '" ^ attr 
+                           ^ "' in the object of class '" ^ c ^ "'.")
+              end
+            | None -> error ("unbound value error: '" ^ c ^ "' class is not declared in the scope.")
+          end
+        | _ -> error "type error: can't access to a field of a non-class expression"
+      end
+  (* change here from "in let rec" to "and" because I need it in type_expr (MethCall) *)
+  and check_instr i ret tenv = 
     match i with
-    | Print e -> ()
-        (* try check e TInt tenv with _ -> ()
-        try check e TBool tenv with _ -> () *)
-    | _ -> failwith "case not implemented in check_instr"
-
+    | Print e -> (* Print implemented for any type *)
+      let _ = type_expr e tenv in 
+      () 
+    | Set (m, e) ->
+      check e (type_mem_access m tenv) tenv
+    | Cond c -> check_cond c TVoid tenv
+  and check_cond c ret tenv =
+    match c with
+    | _ -> ()
   and check_seq s ret tenv =
     List.iter (fun i -> check_instr i ret tenv) s
   in
+
   check_seq p.main TVoid tenv
