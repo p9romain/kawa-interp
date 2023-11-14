@@ -26,6 +26,10 @@
 %token PRINT
 %token EOF
 
+%token NEW CLASS EXTENDS
+%token ATTR DOT THIS
+%token METHOD COMMA RETURN
+
 
 
 %right INTERO TWO_PT
@@ -40,6 +44,10 @@
 %left TIMES SLASH MOD
 %nonassoc U_MINUS
 
+%right NEW
+
+%left DOT COMMA
+
 
 
 %start program
@@ -48,27 +56,86 @@
 %%
 
 program:
-| var=list(variable) MAIN BEGIN body=list(instruction) END EOF
-    { { classes = [] ; globals = var ; main = body } }
+| var=list(variable) cls=list(class_def) MAIN BEGIN body=list(instruction) END EOF
+    { { classes = cls ; globals = var ; main = body } }
 ;
+
+
+class_def:
+| CLASS i=IDENT BEGIN attr=list(attribute) meth=list(methods) END
+    { { class_name = i ; attributes = attr ; methods = meth ; parent = None } }
+| CLASS i=IDENT EXTENDS p=IDENT BEGIN attr=list(attribute) meth=list(methods) END
+    { { class_name = i ; attributes = attr ; methods = meth ; parent = Some(p) } }
+;
+
 
 variable:
 | VAR t=TYPE i=IDENT SEMI { (i, t) }
 ;
+attribute:
+| ATTR t=TYPE i=IDENT SEMI { (i, t) }
+;
+
+
+methods:
+| METHOD t=TYPE i=IDENT LPAR args=arg RPAR BEGIN var=list(variable) body=list(instruction) END 
+    { { method_name = i ; code = body ; params = args ; locals = var ; return = t } }
+;
+arg:
+| t=TYPE i=IDENT             { [ (i, t) ]  }
+| t=TYPE i=IDENT COMMA a=arg { (i, t) :: a }
+;
+
+
+expression:
+| n=INT                                   { Int(n)            }
+| b=BOOL                                  { Bool(b)           }
+
+| THIS                                    { This              }
+| m=mem_access                            { Get(m)            }
+
+| op=uop e=expression                     { Unop(op, e)       }
+| e1=expression op=bop e2=expression      { Binop(op, e1, e2) }
+
+| LPAR e=expression RPAR                  { e                 }
+
+| NEW i=IDENT                             { New(i)            }
+| NEW i=IDENT LPAR e=expression_list RPAR { NewCstr(i, e)     }
+
+| e=expression DOT i=IDENT LPAR el=expression_list RPAR 
+    { MethCall(e, i, el) }
+
+| e1=expression INTERO e2=expression TWO_PT e3=expression
+    { TerCond(e1, e2, e3) }
+;
+expression_list:
+| e=expression                          { [ e ]   }
+| e=expression COMMA el=expression_list { e :: el }
+
+
+mem_access:
+| i=IDENT                   { Var(i)      }
+| e=expression DOT i=IDENT  { Field(e, i) }
+;
+
 
 instruction:
 | PRINT LPAR e=expression RPAR SEMI                             
-    { Print(e)       }
-| i=IDENT SET e=expression SEMI                                 
-    { Set(Var(i), e) }
+    { Print(e) }
+| m=mem_access SET e=expression SEMI                                 
+    { Set(m, e) }
+| c=condition                                                   
+    { Cond(c) }
+| WHILE LPAR e=expression RPAR BEGIN body=list(instruction) END
+    { While(e, body) }
 | DO BEGIN body=list(instruction) END WHILE LPAR e=expression RPAR SEMI
     { DoWhile(body, While(e, body)) }
-| WHILE LPAR e=expression RPAR BEGIN body=list(instruction) END 
-    { While(e, body) }
-| c=condition                                                   
-    { Cond(c)        }
-;
+| RETURN e=expression SEMI
+    { Return(e) }
+| e=expression SEMI
+    { Expr(e) }
 
+;
 condition:
 | IF LPAR e=expression RPAR BEGIN body=list(instruction) END
     { If(e, body) }
@@ -76,21 +143,6 @@ condition:
     { If_Else(e, body1, Else(body2)) }
 | IF LPAR e=expression RPAR BEGIN body=list(instruction) END ELSE c=condition
     { If_Else(e, body, c) }
-;
-
-expression:
-| n=INT                              { Int(n)            }
-| b=BOOL                             { Bool(b)           }
-
-| i=IDENT                            { Get(Var(i))       }
-
-| LPAR e=expression RPAR             { e                 }
-
-| e1=expression op=bop e2=expression { Binop(op, e1, e2) }
-| op=uop e=expression                { Unop(op, e)       }
-
-| e1=expression INTERO e2=expression TWO_PT e3=expression
-    { TerCond(e1, e2, e3) }
 ;
 
 
@@ -111,7 +163,6 @@ expression:
 | AND   { And }
 | OR    { Or  }
 ;
-
 %inline uop :
 | U_MINUS { Opp }
 

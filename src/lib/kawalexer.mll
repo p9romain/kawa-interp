@@ -9,23 +9,31 @@
   let h = Hashtbl.create 17 in
   let () = List.iter (fun (s, k) -> Hashtbl.add h s k)
     [ 
-      "print", PRINT ;
-      "main",  MAIN ;
+      "print",     PRINT ;
+      "main",      MAIN ;
 
-      "true",  BOOL(true) ;
-      "false", BOOL(false) ;
+      "true",      BOOL(true) ;
+      "false",     BOOL(false) ;
 
-      "var",   VAR ;
-      "int",   TYPE(TInt) ;
-      "bool",  TYPE(TBool) ;
-      "void",  TYPE(TVoid) ;
+      "var",       VAR ;
+      "int",       TYPE(TInt) ;
+      "bool",      TYPE(TBool) ;
+      "void",      TYPE(TVoid) ;
 
-      "if",    IF ;
-      "else",  ELSE ;
+      "if",        IF ;
+      "else",      ELSE ;
 
-      "while", WHILE ;
-      "do",    DO ;
-      "for",   FOR
+      "while",     WHILE ;
+      "do",        DO ;
+      "for",       FOR ;
+
+      "new",       NEW ;
+      "class",     CLASS ;
+      "this",      THIS ;
+      "attribute", ATTR ;
+      "method",    METHOD ;
+      "return",    RETURN ;
+      "extends",   EXTENDS
     ]
   in
   fun s ->
@@ -78,6 +86,9 @@ rule token = parse
 
   | "?" { INTERO }
   | ":" { TWO_PT }
+
+  | "." { DOT }
+  | "," { COMMA }
 
   | ";" { SEMI }
   | "(" { LPAR }
