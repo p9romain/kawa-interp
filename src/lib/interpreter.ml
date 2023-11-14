@@ -4,80 +4,55 @@ type value =
   | VInt  of int
   | VBool of bool
   | VObj  of obj
-  | VNull
+  | Null
 and obj = {
   cls:    string;
   fields: (string, value) Hashtbl.t;
 }
 
-exception Error of string
-exception Return of value
-
 let exec_prog p =
-  let global_env = Hashtbl.create 1 in
-  List.iter (fun (x, _) -> Hashtbl.add global_env x VNull) p.globals;
+  let global_env = Hashtbl.create 16 in
+  List.iter (fun (x, _) -> Hashtbl.add global_env x Null) p.globals;
 
   (* For inheritance, we merge all the informations we need here => don't change the algo for
      the exec_seq and exec_meth
    *)
-  let rec f_meth c =
+  let rec go_to_the_oldest field comp c =
     match c.parent with
-    | None -> c.methods
+    | None -> (field c)
     | Some pt ->
       begin
         match List.find_opt ( fun cl -> cl.class_name = pt ) p.classes with
         | None -> failwith ("unbound value error: '" ^ pt ^ "' class is not declared in the scope.")
         | Some pt_cl ->
-          (* Naive : 
-            List.append c.methods (f_meth cl) 
-
-            If the child has a method called 'A', and inherit from a class who also has a method 
-            called 'A', then we keep the child's one.
+          (* If the child has a method/an attribute called 'A', and inherit from a class who also has 
+            a method/an attribute called 'A', then we keep the child's one.
           *)
             let aux e = (* get rid of duplicates *)
-              match List.find_opt ( fun m -> m.method_name = e.method_name ) c.methods with
+              match List.find_opt (comp e) (field c) with
               | None -> true
               | Some _ -> false
             in
-            List.append c.methods (List.filter aux (f_meth pt_cl))
-      end
-  and f_attr c =
-    match c.parent with
-    | None -> c.attributes
-    | Some pt ->
-      begin
-        match List.find_opt ( fun cl -> cl.class_name = pt ) p.classes with
-        | None -> failwith ("unbound value error: '" ^ pt ^ "' class is not declared in the scope.")
-        | Some pt_cl ->
-          (* Naive : 
-            List.append c.attributes (f_meth cl) 
-
-            If the child has an attribute called 'a', and inherit from a class who also has an attribute
-            called 'a', then we keep the child's one.
-          *)
-            let aux (e, _) = (* get rid of duplicates *)
-              match List.find_opt ( fun (x, _) -> x = e ) c.attributes with
-              | None -> true
-              | Some _ -> false
-            in
-            List.append c.attributes (List.filter aux (f_attr pt_cl))
+            List.append (field c) (List.filter aux (go_to_the_oldest field comp pt_cl))
       end
   in
-  let f c = { c with attributes = f_attr c ; methods = f_meth c } in
+  let f c = { c with attributes = go_to_the_oldest (fun x -> x.attributes) (fun (e, _) (x, _) -> x = e) c ; 
+                     methods = go_to_the_oldest (fun x -> x.methods) (fun e m-> m.method_name = e.method_name) c } 
+  in
   let p = { p with classes = List.map f p.classes }
   in
 
   let rec exec_meth f this args =
     (* Using a caps because i'm the only on who is allowed to do it (privelege) *)
     Hashtbl.add args "This" (VObj this) ;
-    Hashtbl.add args "Return" VNull ;
-    List.iter (fun (x, _) -> Hashtbl.add args x VNull) f.locals ;
+    Hashtbl.add args "Return" Null ;
+    List.iter (fun (x, _) -> Hashtbl.add args x Null) f.locals ;
     exec_seq f.code args ;
     let res = Hashtbl.find_opt args "Return" in
     Hashtbl.clear args ;
     match res with
-    | Some v -> v (* If unchanged (so void method), return VNull *)
-    | None -> VNull (* Impossible because always at VNull at start (but security) *)
+    | Some v -> v (* If unchanged (so void method), return Null *)
+    | None -> Null (* Impossible because always at Null at start (but security) *)
 
   and exec_seq s local_env =
     let rec eval_unop op e = 
@@ -212,7 +187,7 @@ let exec_prog p =
           match List.find_opt (fun cl -> cl.class_name = s ) p.classes with
           | None -> failwith ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
           | Some c ->
-            List.iter (fun (x, _) -> Hashtbl.add o.fields x VNull ) c.attributes ;
+            List.iter (fun (x, _) -> Hashtbl.add o.fields x Null ) c.attributes ;
             VObj o
         end
       | NewCstr (s, el) ->

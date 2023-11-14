@@ -15,6 +15,7 @@ let typ_to_string = function
   | TBool    -> "bool"
   | TClass c -> c
 
+(* Operators *)
 type unop  = Opp | Not
 type binop = Add | Sub | Mul | Div | Mod
            | Le  | Lt  | Ge | Gt | Eq  | Neq
