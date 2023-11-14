@@ -90,11 +90,11 @@ let exec_prog p =
           match m with
           | Var s ->
             begin 
-              match Hashtbl.find_opt global_env s with
+              match Hashtbl.find_opt local_env s with
               | Some v -> v
               | None ->
                 begin 
-                  match Hashtbl.find_opt local_env s with
+                  match Hashtbl.find_opt global_env s with
                   | Some v -> v
                   | None -> failwith ("unbound value error: '" ^ s ^ "' is not declared in the scope.")
                 end
@@ -127,12 +127,12 @@ let exec_prog p =
           match m with
           | Var s -> 
             begin 
-              match Hashtbl.find_opt global_env s with
-              | Some _ -> Hashtbl.add global_env s (eval e)
+              match Hashtbl.find_opt local_env s with
+              | Some _ -> Hashtbl.add local_env s (eval e)
               | None ->
                 begin 
-                  match Hashtbl.find_opt local_env s with
-                  | Some _ -> Hashtbl.add local_env s (eval e)
+                  match Hashtbl.find_opt global_env s with
+                  | Some _ -> Hashtbl.add global_env s (eval e)
                   | None -> failwith ("unbound value error: '" ^ s ^ "' is not declared in the scope.")
                 end
             end
