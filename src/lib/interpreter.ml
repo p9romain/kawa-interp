@@ -16,7 +16,57 @@ exception Return of value
 let exec_prog p =
   let global_env = Hashtbl.create 1 in
   List.iter (fun (x, _) -> Hashtbl.add global_env x VNull) p.globals;
-  
+
+  (* For inheritance, we merge all the informations we need here => don't change the algo for
+     the exec_seq and exec_meth
+   *)
+  let rec f_meth c =
+    match c.parent with
+    | None -> c.methods
+    | Some pt ->
+      begin
+        match List.find_opt ( fun cl -> cl.class_name = pt ) p.classes with
+        | None -> failwith ("unbound value error: '" ^ pt ^ "' class is not declared in the scope.")
+        | Some pt_cl ->
+          (* Naive : 
+            List.append c.methods (f_meth cl) 
+
+            If the child has a method called 'A', and inherit from a class who also has a method 
+            called 'A', then we keep the child's one.
+          *)
+            let aux e = (* get rid of duplicates *)
+              match List.find_opt ( fun m -> m.method_name = e.method_name ) c.methods with
+              | None -> true
+              | Some _ -> false
+            in
+            List.append c.methods (List.filter aux (f_meth pt_cl))
+      end
+  and f_attr c =
+    match c.parent with
+    | None -> c.attributes
+    | Some pt ->
+      begin
+        match List.find_opt ( fun cl -> cl.class_name = pt ) p.classes with
+        | None -> failwith ("unbound value error: '" ^ pt ^ "' class is not declared in the scope.")
+        | Some pt_cl ->
+          (* Naive : 
+            List.append c.attributes (f_meth cl) 
+
+            If the child has an attribute called 'a', and inherit from a class who also has an attribute
+            called 'a', then we keep the child's one.
+          *)
+            let aux (e, _) = (* get rid of duplicates *)
+              match List.find_opt ( fun (x, _) -> x = e ) c.attributes with
+              | None -> true
+              | Some _ -> false
+            in
+            List.append c.attributes (List.filter aux (f_attr pt_cl))
+      end
+  in
+  let f c = { c with attributes = f_attr c ; methods = f_meth c } in
+  let p = { p with classes = List.map f p.classes }
+  in
+
   let rec exec_meth f this args =
     Hashtbl.add args "This" (VObj this) ;
     Hashtbl.add args "Return" VNull ;
