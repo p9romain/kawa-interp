@@ -15,9 +15,28 @@ let add_env l tenv =
 let typecheck_prog p =
   let tenv = add_env p.globals Env.empty in
 
-  let rec check e typ tenv =
+  let rec check e typ_expected tenv =
     let typ_e = type_expr e tenv in
-    if typ_e <> typ then type_error typ_e typ
+    if typ_e <> typ_expected then
+      begin
+        match typ_e with
+        | TClass cls_n ->
+          let rec check_inheritance_type class_name =
+            if TClass(class_name) <> typ_expected then
+              begin
+                match List.find_opt (fun cl -> cl.class_name = class_name) p.classes with
+                | Some cl ->
+                    begin
+                      match cl.parent with
+                      | Some s_pt -> check_inheritance_type s_pt
+                      | None -> type_error typ_e typ_expected
+                    end
+                | None -> error ("unbound value error: '" ^ class_name ^ "' class is not declared in the scope.")
+              end 
+          in
+          check_inheritance_type cls_n
+        | _ -> type_error typ_e typ_expected
+      end
 
   and type_expr e tenv = 
     match e with
