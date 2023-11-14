@@ -1,9 +1,8 @@
 (**
-   Kawa : un petit langage à objets inspiré de Java
+   Kawa : a small object language inspired by Java
  *)
 
-(* Types déclarés pour les attributs, pour les variables, et pour les 
-   paramètres et résultats des méthodes. *)
+(* Declared types (used by attributes, variables, args and return type in methods. *)
 type typ =
   | TVoid
   | TInt
@@ -23,42 +22,43 @@ type binop = Add | Sub | Mul | Div | Mod
 
 (* Expressions *)
 type expr =
-  (* Base arithmétique *)
+  (* Arithmetic *)
   | Int      of int
   | Bool     of bool
   | Null
   | Unop     of unop * expr
   | Binop    of binop * expr * expr
   | TerCond  of expr * expr * expr
-  (* Accès à une variable ou un attribut *)
+  (* Get the content of a var or an attributte *)
   | Get      of mem_access
-  (* Objet courant *)
+  (* Current object *)
   | This
-  (* Création d'un nouvel objet *)
+  (* Create a new object *)
   | New      of string
   | NewCstr  of string * expr list
-  (* Appel de méthode *)
+  (* Call a method *)
   | MethCall of expr * string * expr list
 
-(* Accès mémoire : variable ou attribut d'un objet *)
+(* Memory access : either a variable or an attribute *)
 and mem_access =
   | Var   of string
-  | Field of expr (* objet *) * string (* nom d'un attribut *)
+  | Field of expr (* object *) * string (* attribute's name *)
 
 (* Instructions *)
 type instr =
-  (* Affichage d'un entier *)
+  (* Print a boolean or an int *)
   | Print  of expr
-  (* Écriture dans une variable ou un attribut *)
+  (* Set the content in a variable or an attribute *)
   | Set    of mem_access * expr
-  (* Structures de contrôle usuelles *)
+  (* Condition control *)
   | Cond   of cond
+  (* Loops *)
   (* | For    of expr * expr * expr * seq *)
   | While  of expr * seq
   | DoWhile of seq * instr
-  (* Fin d'une fonction *)
+  (* End of a method *)
   | Return of expr
-  (* Expression utilisée comme instruction *)
+  (* Expression *)
   | Expr   of expr
 and cond =
   | If        of expr * seq
@@ -66,11 +66,11 @@ and cond =
   | Else      of seq
 and seq = instr list
 
-(* Définition de méthode 
+(* Method's definition
 
-   Syntaxe : method <type de retour> <nom> (<params>) { ... }
+   Syntax : method <return type> <name> (<params>) { ... }
 
-   Le corps de la méthode est similaire au corps d'une fonction. *)
+   Method's body is similar to the main's body *)
 type method_def = {
     method_name: string;
     code: seq;
@@ -79,14 +79,12 @@ type method_def = {
     return: typ;
   }
         
-(* Définition de classe 
+(* Class's definition
 
-   Syntaxe : class <nom de la classe> { ... }
-        ou : class <nom de la classe> extends <nom de la classe mère> { ... }
+   Syntax : class <class name> { ... }
+       or : class <class name> extends <mother class name> { ... }
 
-   On considère que toute classe C contient une définition de méthode de nom
-   "constructor" et de type de retour void, qui initialise les champs du 
-   paramètre implicite this. *)
+   The class's constructor is a void-typed method called "constructor" *)
 type class_def = {
     class_name: string;
     attributes: (string * typ) list;
@@ -94,8 +92,7 @@ type class_def = {
     parent: string option;
   }
 
-(* Programme complet : variables globales, classes, et une séquence 
-   d'instructions *)
+(* Program : global variables, classes, and an instruction sequence (the main) *)
 type program = {
     classes: class_def list;
     globals: (string * typ) list;
