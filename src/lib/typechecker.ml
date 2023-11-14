@@ -20,7 +20,7 @@ let typecheck_prog p =
     if typ_e <> typ_expected then
       begin
         match typ_e with
-        | TClass cls_n ->
+        | TClass cls_n -> (* for inheritance : A extends B => B is also of type A *)
           let rec check_inheritance_type class_name =
             if TClass(class_name) <> typ_expected then
               begin
@@ -102,7 +102,7 @@ let typecheck_prog p =
     | Get m -> type_mem_access m tenv
     | This ->
       begin
-        match Env.find_opt "This" tenv with
+        match Env.find_opt "@This" tenv with
         | Some v -> v
         | None -> error "unbound value error: can't access to 'this'.\nHint : are you inside a class ?"
       end
@@ -134,7 +134,7 @@ let typecheck_prog p =
                   List.iter2 (fun e (_, t) -> check e t tenv) el m.params ;
                   (* Create local environment with :
                      global + this + params (we already checked type) + local var of the method *)
-                  let tenv = add_env ([("This", TClass c)] @ m.params @ m.locals @ p.globals) Env.empty in
+                  let tenv = add_env ([("@This", TClass c)] @ m.params @ m.locals @ p.globals) Env.empty in
                   (* check if method is well-typed *)
                   check_seq m.code m.return tenv ;
                   m.return

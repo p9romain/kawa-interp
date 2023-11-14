@@ -33,8 +33,8 @@ let exec_prog p =
   List.iter (fun (x, _) -> Hashtbl.add global_env x VNull) p.globals;
   
   let rec exec_meth f this args =
-    (* Use an upper letter because i'm the only one who is allowed to do it (privelege) *)
-    Hashtbl.add args "This" (VObj this) ;
+    (* Use an @ because i'm the only one who is allowed to do it (privelege) *)
+    Hashtbl.add args "@This" (VObj this) ;
     (* Add local variables *)
     List.iter (fun (x, _) -> Hashtbl.add args x VNull) f.locals ;
     (* Execute method *)
@@ -182,7 +182,7 @@ let exec_prog p =
       | This ->
         begin 
           (* Check if the variable is in the local environment *)
-          match Hashtbl.find_opt local_env "This" with
+          match Hashtbl.find_opt local_env "@This" with
           | Some v -> v
           | None -> failwith "Impossible : type_check work"
         end

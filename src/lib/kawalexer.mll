@@ -58,7 +58,7 @@ let integers = ( ['1'-'9'] digit+ ) | digit
 let exponent = ['e' 'E'] '-'? integers
 let floats = decimals | ( integers decimals ) | ( integers decimals? exponent )
 
-let ident = ['a'-'z' '_'] (['a'-'z' 'A'-'Z'] | '_' | digit)*
+let ident = (['a'-'z' 'A'-'Z'] | '_' ['a'-'z' 'A'-'Z']) (['a'-'z' 'A'-'Z'] | '_' | digit)*
   
 rule token = parse
   | ['\n']           { new_line lexbuf; token lexbuf }
