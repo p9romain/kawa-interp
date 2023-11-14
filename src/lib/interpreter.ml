@@ -17,7 +17,7 @@ let exec_prog p =
   let global_env = Hashtbl.create 1 in
   List.iter (fun (x, _) -> Hashtbl.add global_env x VNull) p.globals;
   
-  let rec eval_call f this args =
+  let rec exec_meth f this args =
     Hashtbl.add args "This" (VObj this) ;
     Hashtbl.add args "Return" VNull ;
     List.iter (fun (x, _) -> Hashtbl.add args x VNull) f.locals ;
@@ -85,6 +85,23 @@ let exec_prog p =
       | And -> bool_to_bool ( && )
       | Or -> bool_to_bool ( || )
 
+    and eval_call o m_name arg =
+      match List.find_opt (fun cl -> cl.class_name = o.cls ) p.classes with
+        | None -> failwith ("unbound value error: '" ^ o.cls ^ "' class is not declared in the scope.")
+        | Some c ->
+          begin
+            match List.find_opt (fun m -> m.method_name = m_name ) c.methods with
+              | None -> 
+                if m_name = "constructor" then
+                  failwith ("unbound value error: can't find the constructor method to initialize the object")
+                else
+                  failwith ("unbound value error: '" ^ m_name ^ "' method is not declared in the class '" ^ o.cls ^ "'.")
+              | Some m ->
+                let args = Hashtbl.create 1 in
+                List.iter2 (fun e (x, _) -> Hashtbl.add args x (eval e) ) arg m.params ;
+                exec_meth m o args
+          end
+
     and eval e =
       match e with
       | Int n  -> VInt n
@@ -141,69 +158,21 @@ let exec_prog p =
         end
       | New s ->
         let o = { cls = s ; fields = Hashtbl.create 1 } in
-        let c =
-          let rec find l =
-            match l with
-            | [] -> failwith ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
-            | cl :: ll ->
-              if cl.class_name = s then
-                cl
-              else
-                find ll
-          in
-          find p.classes
-        in
-        let () = List.iter (fun (x, _) -> Hashtbl.add o.fields x VNull ) c.attributes
-        in
-        VObj o
-      | NewCstr (s, el) ->
-        let o = eval (New s) in
         begin
-          match o with
-          | VObj o ->
-            let rec find l f x b =
-              match l with
-              | [] -> 
-                if b then
-                  failwith ("unbound value error: '" ^ x ^ "' class is not declared in the scope.")
-                else
-                  failwith ("unbound value error: can't find the constructor statement to initialize the object")
-              | e :: ll ->
-                if f e = x then
-                  e
-                else
-                  find ll f x b
-            in
-            let c = find p.classes (fun c -> c.class_name) o.cls true in
-            let f = find c.methods (fun m -> m.method_name) "constructor" false in
-            let args = Hashtbl.create 1 in
-            List.iter2 (fun e (x, _) -> Hashtbl.add args x (eval e) ) el f.params ;
-            eval_call f o args ;
+          match List.find_opt (fun cl -> cl.class_name = s ) p.classes with
+          | None -> failwith ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
+          | Some c ->
+            List.iter (fun (x, _) -> Hashtbl.add o.fields x VNull ) c.attributes ;
             VObj o
-          | _ -> failwith "Impossible" (* Impossible because eval(New s) return an object *)
         end
+      | NewCstr (s, el) ->
+        let VObj(o) = eval (New s) in
+        let _ = eval_call o "constructor" el in
+        VObj o
       | MethCall (e, s, el) ->
         begin
           match eval e with
-          | VObj o ->
-            let rec find l f x b =
-              match l with
-              | [] -> 
-                if b then
-                  failwith ("unbound value error: '" ^ x ^ "' class is not declared in the scope.")
-                else
-                  failwith ("unbound value error: '" ^ x ^ "' method is not declared in the class '" ^ o.cls ^ "'.")
-              | e :: ll ->
-                if f e = x then
-                  e
-                else
-                  find ll f x b
-            in
-            let c = find p.classes (fun c -> c.class_name) o.cls true in
-            let f = find c.methods (fun m -> m.method_name) s false in
-            let args = Hashtbl.create 1 in
-            List.iter2 (fun e (x, _) -> Hashtbl.add args x (eval e) ) el f.params ;
-            eval_call f o args
+          | VObj o -> eval_call o s el
           | _ -> failwith "type error: can't access to a field of a non-object"
         end
     in
