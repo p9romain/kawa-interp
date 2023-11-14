@@ -31,44 +31,7 @@ let rec string_of_obj o =
 let exec_prog p =
   let global_env = Hashtbl.create 16 in
   List.iter (fun (x, _) -> Hashtbl.add global_env x VNull) p.globals;
-
-  (* In order to get a working interpreter, I choose to implment inheritance like this :
-
-    At the start, before starting the main, I "flatten" all the inheritance. For exemple,
-    if A has an attribute 'a', and B inherits from A and has an attribute 'b', then in B.attributes
-    there are 'a' and 'b'
-
-    This isn't optimal, but it's clearly fine for now. But it will be change. (probably.)
-   *)
-
-  (* Get all the methods or attributes we need to inherit *)
-  let rec get_all field comp c =
-    match c.parent with
-    | None -> (field c)
-    | Some pt ->
-      begin
-        match List.find_opt ( fun cl -> cl.class_name = pt ) p.classes with
-        | None -> failwith "Impossible : type_check work"
-        | Some pt_cl ->
-          (* If the child has a method/an attribute called 'A', and inherit from a class who also has 
-            a method/an attribute called 'A', then we keep the child's one.
-          *)
-            let aux e = (* get rid of duplicates *)
-              match List.find_opt (comp e) (field c) with
-              | None -> true
-              | Some _ -> false
-            in
-            List.append (field c) (List.filter aux (get_all field comp pt_cl))
-      end
-  in
-  (* Change class's attributes and methods (adding inherited ones) *)
-  let inherit_obj c = { c with attributes = get_all (fun x -> x.attributes) (fun (e, _) (x, _) -> x = e) c ; 
-                     methods = get_all (fun x -> x.methods) (fun e m-> m.method_name = e.method_name) c } 
-  in
-  (* Apply changes on every classes *)
-  let p = { p with classes = List.map inherit_obj p.classes }
-  in
-
+  
   let rec exec_meth f this args =
     (* Use an upper letter because i'm the only one who is allowed to do it (privelege) *)
     Hashtbl.add args "This" (VObj this) ;
