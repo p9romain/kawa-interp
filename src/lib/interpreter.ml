@@ -10,9 +10,35 @@ and obj = {
   fields: (string, value) Hashtbl.t;
 }
 
+exception Error of string
+
+let rec string_of_obj o =
+  Printf.sprintf "Object<%s>(%s)" o.cls (Hashtbl.fold 
+    (fun k v acc -> 
+      acc ^ (if acc = "" then "" else "; ") ^ (Printf.sprintf "%s = %s" k 
+        (
+          match v with
+          | VInt n -> string_of_int n
+          | VBool b -> if b then "true" else "false"
+          | VObj o' -> string_of_obj o'
+          | Null -> "null"
+        )
+      ) 
+    ) 
+  o.fields "")
+
 let exec_prog p =
   let global_env = Hashtbl.create 16 in
   List.iter (fun (x, _) -> Hashtbl.add global_env x Null) p.globals;
+
+  (* In order to get a working interpreter, I choose to implment inheritance like this :
+
+    At the start, before starting the main, I "flatten" all the inheritance. For exemple,
+    if A has an attribute 'a', and B inherits from A and has an attribute 'b', then in B.attributes
+    there are 'a' and 'b'
+
+    This isn't optimal, but is clearly fine for now. But it will be change. (probably.)
+   *)
 
   (* Get all the methods or attributes we need to inherit *)
   let rec get_all field comp c =
@@ -35,11 +61,11 @@ let exec_prog p =
       end
   in
   (* Change class's attributes and methods (adding inherited ones) *)
-  let inherit c = { c with attributes = get_all (fun x -> x.attributes) (fun (e, _) (x, _) -> x = e) c ; 
+  let inherit_obj c = { c with attributes = get_all (fun x -> x.attributes) (fun (e, _) (x, _) -> x = e) c ; 
                      methods = get_all (fun x -> x.methods) (fun e m-> m.method_name = e.method_name) c } 
   in
   (* Apply changes on every classes *)
-  let p = { p with classes = List.map inherit p.classes }
+  let p = { p with classes = List.map inherit_obj p.classes }
   in
 
   let rec exec_meth f this args =
@@ -84,7 +110,7 @@ let exec_prog p =
       (* Manage operators with two booleans, and return a boolean *)
       in let bool_to_bool op =
         match eval e1, eval e2 with
-          | VBool b1, VBool b2 -> VBool (op b1 b2)
+          | VBool b1, VBool b2 -> VBool (op b1 b2) (* Call-by-need from OCamL *)
           | _ -> failwith "type error: boolean binary operator can only be use on booleans"
       (* Manage operators with two numbers, and return a boolean *)
       in let num_to_bool op =
@@ -107,6 +133,9 @@ let exec_prog p =
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool (n1 = n2)
           | VBool b1, VBool b2 -> VBool (b1 = b2)
+          (* Two objects are equal if and only if they are physically the same object 
+             And we have "(==) => (=)", so we have '&&' *)
+          | VObj o1, VObj o2 -> VBool (o1 == o2 && o1 = o2)
           | _ -> failwith "type error: comparison can only be use on integers and booleans"
         end
       | Neq ->
@@ -226,7 +255,8 @@ let exec_prog p =
           match eval e with
           | VInt n -> Printf.printf "%d\n" n
           | VBool b -> Printf.printf "%s\n" (if b then "true" else "false")
-          | _ -> failwith "type error: can't print other type than int or bool." 
+          | VObj o -> Printf.printf "%s\n" (string_of_obj o) 
+          | Null -> Printf.printf "null\n"
         end
       | Set (m, e) ->
         begin

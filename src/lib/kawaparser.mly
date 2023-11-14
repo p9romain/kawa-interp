@@ -31,7 +31,11 @@
 %token EOF
 
 
+/* Priority from Java
 
+   Source :
+   [https://pages.cs.wisc.edu/~willb/cs302/java-operator-precedence.pdf]
+*/
 %right INTERO TWO_PT
 
 %left OR
@@ -94,7 +98,6 @@ arg:
 expression:
 | n=INT                                   { Int(n)            }
 | b=BOOL                                  { Bool(b)           }
-| NULL                                    { Null              }
 
 | THIS                                    { This              }
 | m=mem_access                            { Get(m)            }
