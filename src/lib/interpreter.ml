@@ -79,12 +79,45 @@ let exec_prog p =
       | Or -> bool_to_bool ( || )
       | _ -> assert false
 
+    and eval_new s el =
+      let o = { cls = s ; fields = Hashtbl.create 1 } in
+      let c =
+        let rec find l =
+          match l with
+          | [] -> failwith ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
+          | cl :: ll ->
+            if cl.class_name = s then
+              cl
+            else
+              find ll
+        in
+        find p.classes
+      in
+      let () = 
+        begin
+          match el with
+          | None -> List.iter (fun (x, _) -> Hashtbl.add o.fields x Null ) c.attributes
+          | Some el -> List.iter2 (fun (x, _) e -> Hashtbl.add o.fields x (eval e) ) c.attributes el
+        end
+      in 
+      VObj o
+
     and eval e =
       match e with
       | Int n  -> VInt n
       | Bool b -> VBool b
       | Binop (op, e1, e2) -> eval_binop op e1 e2
       | Unop (op, e) -> eval_unop op e
+      | TerCond(e1, e2, e3) ->
+        begin
+          match eval e1 with
+          | VBool b ->
+            if b then
+              eval e2
+            else
+              eval e3 
+          | _ -> failwith "type error: can't evaluate anything else than a boolean as a condition test" 
+        end
       | Get m ->
         begin
           match m with
@@ -101,16 +134,9 @@ let exec_prog p =
             end
           | _ -> failwith "case not implemented in eval::get"
         end
-      | TerCond(e1, e2, e3) ->
-        begin
-          match eval e1 with
-          | VBool b ->
-            if b then
-              eval e2
-            else
-              eval e3 
-          | _ -> failwith "type error: can't evaluate anything else than a boolean as a condition test" 
-        end
+      | This -> Null (* TODO *)
+      | New s -> eval_new s None
+      | NewCstr (s, el) -> eval_new s (Some el)
       | _ -> assert false
     in
     let rec exec i = 
