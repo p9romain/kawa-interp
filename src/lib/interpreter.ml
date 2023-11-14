@@ -4,7 +4,7 @@ type value =
   | VInt  of int
   | VBool of bool
   | VObj  of obj
-  | Null
+  | VNull
 and obj = {
   cls:    string;
   fields: (string, value) Hashtbl.t;
@@ -15,10 +15,18 @@ exception Return of value
 
 let exec_prog p =
   let global_env = Hashtbl.create 1 in
-  List.iter (fun (x, _) -> Hashtbl.add global_env x Null) p.globals;
+  List.iter (fun (x, _) -> Hashtbl.add global_env x VNull) p.globals;
   
   let rec eval_call f this args =
-    failwith "eval_call not implemented"
+    Hashtbl.add args "This" (VObj this) ;
+    Hashtbl.add args "Return" VNull ;
+    List.iter (fun (x, _) -> Hashtbl.add args x VNull) f.locals ;
+    exec_seq f.code args ;
+    let res = Hashtbl.find_opt args "Return" in
+    Hashtbl.clear args ;
+    match res with
+    | Some v -> v (* If unchanged (so void method), return VNull *)
+    | None -> VNull (* Impossible because always at VNull at start (but security) *)
 
   and exec_seq s local_env =
     let rec eval_unop op e = 
@@ -77,35 +85,13 @@ let exec_prog p =
       | And -> bool_to_bool ( && )
       | Or -> bool_to_bool ( || )
 
-    and eval_new s el =
-      let o = { cls = s ; fields = Hashtbl.create 1 } in
-      let c =
-        let rec find l =
-          match l with
-          | [] -> failwith ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
-          | cl :: ll ->
-            if cl.class_name = s then
-              cl
-            else
-              find ll
-        in
-        find p.classes
-      in
-      let () = 
-        begin
-          match el with
-          | None -> List.iter (fun (x, _) -> Hashtbl.add o.fields x Null ) c.attributes
-          | Some el -> List.iter2 (fun (x, _) e -> Hashtbl.add o.fields x (eval e) ) c.attributes el
-        end
-      in 
-      VObj o
-
     and eval e =
       match e with
       | Int n  -> VInt n
       | Bool b -> VBool b
-      | Binop (op, e1, e2) -> eval_binop op e1 e2
+      | Null -> VNull
       | Unop (op, e) -> eval_unop op e
+      | Binop (op, e1, e2) -> eval_binop op e1 e2
       | TerCond(e1, e2, e3) ->
         begin
           match eval e1 with
@@ -142,9 +128,76 @@ let exec_prog p =
               | _ -> failwith "type error: can't access to a field of a non-object"
             end
         end
-      | This -> Null (* TODO *)
-      | New s -> eval_new s None
-      | NewCstr (s, el) -> eval_new s (Some el)
+      | This ->
+        begin 
+          match Hashtbl.find_opt local_env "This" with
+          | Some v -> v
+          | None ->
+            begin 
+              match Hashtbl.find_opt global_env "This" with
+              | Some v -> v
+              | None -> failwith ("unbound value error: .")
+            end
+        end
+      | New s ->
+        let o = { cls = s ; fields = Hashtbl.create 1 } in
+        let c =
+          let rec find l =
+            match l with
+            | [] -> failwith ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
+            | cl :: ll ->
+              if cl.class_name = s then
+                cl
+              else
+                find ll
+          in
+          find p.classes
+        in
+        let () = List.iter (fun (x, _) -> Hashtbl.add o.fields x VNull ) c.attributes
+        in
+        VObj o
+      | NewCstr (s, el) ->
+        let o = eval (New s) in
+        begin
+          match o with
+          | VObj o ->
+            let rec find l f x =
+              match l with
+              | [] -> failwith ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
+              | e :: ll ->
+                if f e = x then
+                  e
+                else
+                  find ll f x
+            in
+            let c = find p.classes (fun c -> c.class_name) o.cls in
+            let f = find c.methods (fun m -> m.method_name) "constructor" in
+            let args = Hashtbl.create 1 in
+            List.iter2 (fun e (x, _) -> Hashtbl.add args x (eval e) ) el f.params ;
+            eval_call f o args ;
+            VObj o
+          | _ -> failwith "Impossible" (* Impossible because eval(New s) return an object *)
+        end
+      | MethCall (e, s, el) ->
+        begin
+          match eval e with
+          | VObj o ->
+            let rec find l f x =
+              match l with
+              | [] -> failwith ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
+              | e :: ll ->
+                if f e = x then
+                  e
+                else
+                  find ll f x
+            in
+            let c = find p.classes (fun c -> c.class_name) o.cls in
+            let f = find c.methods (fun m -> m.method_name) s in
+            let args = Hashtbl.create 1 in
+            List.iter2 (fun e (x, _) -> Hashtbl.add args x (eval e) ) el f.params ;
+            eval_call f o args
+          | _ -> failwith "type error: can't access to a field of a non-object"
+        end
     in
     let rec exec i = 
       match i with
@@ -198,7 +251,10 @@ let exec_prog p =
         exec_seq s local_env ;
         exec_seq [ w ] local_env
       | Cond c -> exec_cond c
-      | _ -> failwith "case not implemented in exec"
+      | Return e -> Hashtbl.add local_env "Return" (eval e)
+      | Expr e -> 
+        match eval e with
+        | _ -> ()
 
     and exec_cond c =
       match c with

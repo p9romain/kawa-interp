@@ -17,7 +17,7 @@
 %token NOT AND OR
 %token LE LT GE GT EQ NEQ
 
-%token VAR
+%token VAR NULL
 %token INTERO TWO_PT
 %token IF ELSE
 %token DO WHILE FOR
@@ -80,6 +80,8 @@ attribute:
 
 
 methods:
+| METHOD t=TYPE i=IDENT LPAR RPAR BEGIN var=list(variable) body=list(instruction) END 
+    { { method_name = i ; code = body ; params = [] ; locals = var ; return = t } }
 | METHOD t=TYPE i=IDENT LPAR args=arg RPAR BEGIN var=list(variable) body=list(instruction) END 
     { { method_name = i ; code = body ; params = args ; locals = var ; return = t } }
 ;
@@ -92,6 +94,7 @@ arg:
 expression:
 | n=INT                                   { Int(n)            }
 | b=BOOL                                  { Bool(b)           }
+| NULL                                    { Null              }
 
 | THIS                                    { This              }
 | m=mem_access                            { Get(m)            }
@@ -104,6 +107,8 @@ expression:
 | NEW i=IDENT                             { New(i)            }
 | NEW i=IDENT LPAR e=expression_list RPAR { NewCstr(i, e)     }
 
+| e=expression DOT i=IDENT LPAR RPAR 
+    { MethCall(e, i, []) }
 | e=expression DOT i=IDENT LPAR el=expression_list RPAR 
     { MethCall(e, i, el) }
 
