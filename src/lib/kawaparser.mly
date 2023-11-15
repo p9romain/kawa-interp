@@ -62,33 +62,60 @@
 %%
 
 program:
-| var=list(variable) cls=list(class_def) MAIN BEGIN body=list(instruction) END EOF
+| var=declaration_var cls=list(class_def) MAIN BEGIN body=list(instruction) END EOF
     { { classes = cls ; globals = var ; main = body } }
 ;
 
 
 class_def:
-| CLASS i=IDENT BEGIN attr=list(attribute) meth=list(methods) END
+| CLASS i=IDENT BEGIN END
+    { { class_name = i ; attributes = [] ; methods = [] ; parent = None } }
+| CLASS i=IDENT BEGIN attr=declaration_attr END
+    { { class_name = i ; attributes = attr ; methods = [] ; parent = None } }
+| CLASS i=IDENT BEGIN meth=nonempty_list(methods) END
+    { { class_name = i ; attributes = [] ; methods = meth ; parent = None } }
+| CLASS i=IDENT BEGIN attr=declaration_attr meth=nonempty_list(methods) END
     { { class_name = i ; attributes = attr ; methods = meth ; parent = None } }
-| CLASS i=IDENT EXTENDS p=IDENT BEGIN attr=list(attribute) meth=list(methods) END
+| CLASS i=IDENT EXTENDS p=IDENT BEGIN END
+    { { class_name = i ; attributes = [] ; methods = [] ; parent = Some(p) } }
+| CLASS i=IDENT EXTENDS p=IDENT BEGIN attr=declaration_attr END
+    { { class_name = i ; attributes = attr ; methods = [] ; parent = Some(p) } }
+| CLASS i=IDENT EXTENDS p=IDENT BEGIN meth=nonempty_list(methods) END
+    { { class_name = i ; attributes = [] ; methods = meth ; parent = Some(p) } }
+| CLASS i=IDENT EXTENDS p=IDENT BEGIN attr=declaration_attr meth=nonempty_list(methods) END
     { { class_name = i ; attributes = attr ; methods = meth ; parent = Some(p) } }
 ;
 
-
+/* Allowing "var int x, y ;" */
 variable:
 | VAR t=TYPE i=IDENT SEMI { (i, t) }
 | VAR t=IDENT i=IDENT SEMI { (i, TClass(t)) }
+;
+list_var_attr:
+| i=IDENT { [ i ] }
+| i=IDENT COMMA v=list_var_attr { i :: v }
+;
+declaration_var:
+| v=variable { [ v ] }
+| v=variable d=declaration_var { v :: d }
+| VAR t=TYPE i=IDENT COMMA v=list_var_attr SEMI { (i, t) :: (List.map (fun i -> (i, t)) v) }
+| VAR t=TYPE i=IDENT COMMA v=list_var_attr SEMI d=declaration_var { (i, t) :: ((List.map (fun i -> (i, t)) v) @ d) }
 ;
 attribute:
 | ATTR t=TYPE i=IDENT SEMI { (i, t) }
 | ATTR t=IDENT i=IDENT SEMI { (i, TClass(t)) }
 ;
-
+declaration_attr:
+| a=attribute { [ a ] }
+| a=attribute d=declaration_attr { a :: d }
+| VAR t=TYPE i=IDENT COMMA v=list_var_attr SEMI { (i, t) :: (List.map (fun i -> (i, t)) v) }
+| VAR t=TYPE i=IDENT COMMA v=list_var_attr SEMI d=declaration_attr { (i, t) :: ((List.map (fun i -> (i, t)) v) @ d) }
+;
 
 methods:
-| METHOD t=TYPE i=IDENT LPAR RPAR BEGIN var=list(variable) body=list(instruction) END 
+| METHOD t=TYPE i=IDENT LPAR RPAR BEGIN var=declaration_var body=list(instruction) END 
     { { method_name = i ; code = body ; params = [] ; locals = var ; return = t } }
-| METHOD t=TYPE i=IDENT LPAR args=arg RPAR BEGIN var=list(variable) body=list(instruction) END 
+| METHOD t=TYPE i=IDENT LPAR args=arg RPAR BEGIN var=declaration_var body=list(instruction) END 
     { { method_name = i ; code = body ; params = args ; locals = var ; return = t } }
 ;
 arg:
