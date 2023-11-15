@@ -30,13 +30,13 @@ let rec string_of_obj o =
 
 let exec_prog p =
   let global_env = Hashtbl.create 16 in
-  List.iter (fun (x, _) -> Hashtbl.add global_env x VNull) p.globals;
+  List.iter (fun (x, _) -> Hashtbl.replace global_env x VNull) p.globals;
   
   let rec exec_meth f this args =
     (* Use an @ because i'm the only one who is allowed to do it (privelege) *)
-    Hashtbl.add args "@This" (VObj this) ;
+    Hashtbl.replace args "@This" (VObj this) ;
     (* Add local variables *)
-    List.iter (fun (x, _) -> Hashtbl.add args x VNull) f.locals ;
+    List.iter (fun (x, _) -> Hashtbl.replace args x VNull) f.locals ;
     (* Execute method *)
     try
       exec_seq f.code args ;
@@ -62,32 +62,61 @@ let exec_prog p =
         end
 
     and eval_binop op e1 e2 =
-      (* Manage operators with two integers, and return a integer *)
-      let int_to_int op =
-         match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VInt (op n1 n2)
-          | _ -> failwith "Impossible : type_check work"
-      (* Manage operators with two booleans, and return a boolean *)
-      in let bool_to_bool op =
-        match eval e1, eval e2 with
-          | VBool b1, VBool b2 -> VBool (op b1 b2) (* Call-by-need from OCamL *)
-          | _ -> failwith "Impossible : type_check work"
-      (* Manage operators with two integers, and return a boolean *)
-      in let int_to_bool op =
-        match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VBool (op n1 n2)
-          | _ -> failwith "Impossible : type_check work"
-      in
       match op with
-      | Add -> int_to_int ( + )
-      | Sub -> int_to_int ( - )
-      | Mul -> int_to_int ( * )
-      | Div -> int_to_int ( / )
-      | Mod -> int_to_int ( mod )
-      | Le -> int_to_bool ( <= )
-      | Lt -> int_to_bool ( < )
-      | Ge -> int_to_bool ( >= )
-      | Gt -> int_to_bool ( > )
+      | Add ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VInt ((+) n1 n2)
+          | _ -> failwith "Impossible : type_check work"
+        end
+      | Sub ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VInt ((-) n1 n2)
+          | _ -> failwith "Impossible : type_check work"
+        end
+      | Mul ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VInt (( * ) n1 n2)
+          | _ -> failwith "Impossible : type_check work"
+        end
+      | Div ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VInt ((/) n1 n2)
+          | _ -> failwith "Impossible : type_check work"
+        end
+      | Mod ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VInt ((mod) n1 n2)
+          | _ -> failwith "Impossible : type_check work"
+        end
+      | Le ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool ((<=) n1 n2)
+          | _ -> failwith "Impossible : type_check work"
+        end
+      | Lt ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool ((<) n1 n2)
+          | _ -> failwith "Impossible : type_check work"
+        end
+      | Ge ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool ((>=) n1 n2)
+          | _ -> failwith "Impossible : type_check work"
+        end
+      | Gt ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool ((>) n1 n2)
+          | _ -> failwith "Impossible : type_check work"
+        end
       | Eq ->
         begin
           match eval e1, eval e2 with
@@ -96,6 +125,7 @@ let exec_prog p =
           (* Two objects are equal if and only if they are physically the same object 
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 == o2 && o1 = o2)
+          | VNull, VNull -> VBool(true)
           | _ -> failwith "Impossible : type_check work"
         end
       | Neq ->
@@ -106,10 +136,21 @@ let exec_prog p =
           (* Two objects are equal if and only if they are physically the same object 
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 != o2 && o1 <> o2)
+          | VNull, VNull -> VBool(false)
           | _ -> failwith "Impossible : type_check work"
         end
-      | And -> bool_to_bool ( && )
-      | Or -> bool_to_bool ( || )
+      | And ->
+        begin
+          match eval e1, eval e2 with
+          | VBool b1, VBool b2 -> VBool ((&&) b1 b2)
+          | _ -> failwith "Impossible : type_check work"
+        end
+      | Or ->
+        begin
+          match eval e1, eval e2 with
+          | VBool b1, VBool b2 -> VBool ((||) b1 b2)
+          | _ -> failwith "Impossible : type_check work"
+        end
 
     and eval_call o m_name arg =
       (* Check if the class exists *)
@@ -127,7 +168,7 @@ let exec_prog p =
               | Some m ->
                 let args = Hashtbl.create 5 in
                 (* Add all the parameters in the local environment *)
-                List.iter2 (fun e (x, _) -> Hashtbl.add args x (eval e) ) arg m.params ;
+                List.iter2 (fun e (x, _) -> Hashtbl.replace args x (eval e) ) arg m.params ;
                 (* Start the method call *)
                 exec_meth m o args
           end
@@ -146,7 +187,7 @@ let exec_prog p =
             if b then
               eval e1
             else
-              eval e2 
+              eval e2
           | _ -> failwith "Impossible : type_check work"
         end
       | Get m ->
@@ -195,7 +236,7 @@ let exec_prog p =
           | None -> failwith "Impossible : type_check work"
           | Some c ->
             (* Set up all the attributes to VNull *)
-            List.iter (fun (x, _) -> Hashtbl.add o.fields x VNull ) c.attributes ;
+            List.iter (fun (x, _) -> Hashtbl.replace o.fields x VNull ) c.attributes ;
             VObj o
         end
       | NewCstr (s, el) ->
@@ -229,12 +270,12 @@ let exec_prog p =
             begin
               (* Check if the variable is in the local environment *)
               match Hashtbl.find_opt local_env s with
-              | Some _ -> Hashtbl.add local_env s (eval e)
+              | Some _ -> Hashtbl.replace local_env s (eval e)
               | None ->
                 begin
                   (* Check if the variable is in the global environment *)
                   match Hashtbl.find_opt global_env s with
-                  | Some _ -> Hashtbl.add global_env s (eval e)
+                  | Some _ -> Hashtbl.replace global_env s (eval e)
                   | None -> failwith "Impossible : type_check work"
                 end
             end
@@ -246,7 +287,7 @@ let exec_prog p =
                 begin
                   (* Check if the field exists *)
                   match Hashtbl.find_opt o.fields s with
-                  | Some _ -> Hashtbl.add o.fields s (eval e)
+                  | Some _ -> Hashtbl.replace o.fields s (eval e)
                   | None -> failwith "Impossible : type_check work"
                 end
               | _ -> failwith "Impossible : type_check work"

@@ -31,6 +31,8 @@ let () =
        out if it's true) 
     *)
 
+    (* The type checker has to navigate through inheritance so it's probably not optimal at all as I first thought *)
+
     (* Get all the methods or attributes we need to inherit *)
     let rec get_all field comp c =
       match c.parent with

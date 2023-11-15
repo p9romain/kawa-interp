@@ -111,6 +111,7 @@ expression:
 | LPAR e=expression RPAR                  { e                 }
 
 | NEW i=IDENT                             { New(i)            }
+| NEW i=IDENT LPAR RPAR                   { NewCstr(i, [])    }
 | NEW i=IDENT LPAR e=expression_list RPAR { NewCstr(i, e)     }
 
 | e=expression DOT i=IDENT LPAR RPAR 

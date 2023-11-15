@@ -17,7 +17,7 @@ let typecheck_prog p =
 
   let rec check e typ_expected tenv =
     let typ_e = type_expr e tenv in
-    if typ_e <> typ_expected then
+    if typ_e <> TVoid && typ_e <> typ_expected then
       begin
         match typ_e with
         | TClass cls_n -> (* for inheritance : A extends B => B is also of type A *)
@@ -31,7 +31,7 @@ let typecheck_prog p =
                       | Some s_pt -> check_inheritance_type s_pt
                       | None -> type_error typ_e typ_expected
                     end
-                | None -> error ("unbound value error: '" ^ class_name ^ "' class is not declared in the scope.")
+                | None -> error ("unbound value error: '" ^ class_name ^ "' class is not declared in the program.")
               end 
           in
           check_inheritance_type cls_n
@@ -74,6 +74,7 @@ let typecheck_prog p =
             let t2 = type_expr e2 tenv in
             match t1, t2 with
             | TInt, TInt
+            | TVoid, TVoid
             | TBool, TBool -> TBool
             | TClass s1, TClass s2 -> 
               if s1 = s2 then
@@ -95,32 +96,31 @@ let typecheck_prog p =
       let () = check t TBool tenv in
       let t1 = type_expr e1 tenv in 
       let t2 = type_expr e2 tenv in
-      if t1 <> t2 then 
+      if not (t1 = TVoid || t2 = TVoid) && t1 <> t2 then 
        type_error t1 t2
       else
-        t1
+        if t1 = t2 then
+          t1
+        else
+          (* t1 or t2 are void *)
+          TVoid
     | Get m -> type_mem_access m tenv
     | This ->
       begin
         match Env.find_opt "@This" tenv with
-        | Some v -> v
+        | Some t -> t
         | None -> error "unbound value error: can't access to 'this'.\nHint : are you inside a class ?"
       end
     | New s ->
       begin
         match List.find_opt (fun cl -> cl.class_name = s) p.classes with
         | Some _ -> TClass s
-        | None -> error ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
+        | None -> error ("unbound value error: '" ^ s ^ "' class is not declared in the program.")
       end   
     | NewCstr (s, el) -> 
-      check (MethCall(New s, "constructor", el)) TVoid tenv ;
-      begin
-        match List.find_opt (fun cl -> cl.class_name = s) p.classes with
-        | Some cl -> 
-          List.iter2 (fun e (_, t) -> check e t tenv) el cl.attributes ;
-          TClass s
-        | None -> error ("unbound value error: '" ^ s ^ "' class is not declared in the scope.")
-      end
+      let t = type_expr (New s) tenv in
+      let () = check (MethCall(New s, "constructor", el)) TVoid tenv in
+      t
     | MethCall (e, s, el) ->
       begin
         match type_expr e tenv with
@@ -141,7 +141,7 @@ let typecheck_prog p =
                 | None -> error ("unbound value error: can't acces the method '" ^ s 
                            ^ "' in the object of class '" ^ c ^ "'.")
               end
-            | None -> error ("unbound value error: '" ^ c ^ "' class is not declared in the scope.")
+            | None -> error ("unbound value error: '" ^ c ^ "' class is not declared in the program.")
           end
         | _ -> error "type error: can't access to a method of a non-class expression"
       end
@@ -167,7 +167,7 @@ let typecheck_prog p =
                 | None -> error ("unbound value error: can't acces the field '" ^ attr 
                            ^ "' in the object of class '" ^ c ^ "'.")
               end
-            | None -> error ("unbound value error: '" ^ c ^ "' class is not declared in the scope.")
+            | None -> error ("unbound value error: '" ^ c ^ "' class is not declared in the program.")
           end
         | _ -> error "type error: can't access to a field of a non-class expression"
       end
