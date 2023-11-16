@@ -39,7 +39,8 @@
       "return",    RETURN ;
 
       "main",      MAIN ;
-      "print",     PRINT
+      "print",     PRINT ;
+      "assert",    ASSERT ;
     ]
   in
   fun s ->

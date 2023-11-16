@@ -30,7 +30,7 @@
 %token METHOD COMMA RETURN
 
 %token MAIN
-%token PRINT
+%token PRINT ASSERT
 %token EOF
 
 
@@ -63,8 +63,11 @@
 %%
 
 program:
-| var=flatten(list(var_decl)) cls=list(class_def) MAIN BEGIN body=list(instr) END EOF
-    { { classes = cls ; globals = var ; main = body } }
+| var=flatten(list(var_decl)) cls=list(class_def) MAIN s=seq EOF
+    { { classes = cls ; globals = var ; main = s } }
+;
+seq:
+| BEGIN body=list(instr) END { body }
 ;
 
 class_def:
@@ -125,13 +128,14 @@ mem:
 
 instr:
 | PRINT LPAR e=expr RPAR SEMI { Print e }
+| ASSERT LPAR e=expr RPAR SEMI { Assert e }
 
 | m=mem SET e=expr SEMI { Set(m, e) }
 
 | c=cond { Cond(c) }
 
-| WHILE LPAR e=expr RPAR BEGIN body=list(instr) END { While(e, body) }
-| DO BEGIN body=list(instr) END WHILE LPAR e=expr RPAR SEMI { DoWhile(body, While(e, body)) }
+| WHILE LPAR e=expr RPAR s=seq { While(e, s) }
+| DO s=seq WHILE LPAR e=expr RPAR SEMI { DoWhile(s, While(e, s)) }
 
 | RETURN e=expr SEMI { Return e }
 
@@ -139,12 +143,9 @@ instr:
 ;
 
 cond:
-| IF LPAR e=expr RPAR BEGIN body=list(instr) END
-    { If(e, body) }
-| IF LPAR e=expr RPAR BEGIN body1=list(instr) END ELSE BEGIN body2=list(instr) END
-    { If_Else(e, body1, Else(body2)) }
-| IF LPAR e=expr RPAR BEGIN body=list(instr) END ELSE c=cond
-    { If_Else(e, body, c) }
+| IF LPAR e=expr RPAR s=seq { If(e, s) }
+| IF LPAR e=expr RPAR s1=seq ELSE s2=seq { If_Else(e, s1, Else(s2)) }
+| IF LPAR e=expr RPAR s=seq ELSE c=cond { If_Else(e, s, c) }
 ;
 
 %inline bop :

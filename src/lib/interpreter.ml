@@ -52,13 +52,13 @@ let exec_prog p =
         begin
           match eval e with
           | VInt n -> VInt (-n)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Not ->
         begin
           match eval e with
           | VBool b -> VBool (not b)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
 
     and eval_binop op e1 e2 =
@@ -67,104 +67,101 @@ let exec_prog p =
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VInt ((+) n1 n2)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Sub ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VInt ((-) n1 n2)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Mul ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VInt (( * ) n1 n2)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Div ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VInt ((/) n1 n2)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Mod ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VInt ((mod) n1 n2)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Le ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool ((<=) n1 n2)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Lt ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool ((<) n1 n2)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Ge ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool ((>=) n1 n2)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Gt ->
         begin
           match eval e1, eval e2 with
           | VInt n1, VInt n2 -> VBool ((>) n1 n2)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Eq ->
         begin
           match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VBool (n1 = n2)
-          | VBool b1, VBool b2 -> VBool (b1 = b2)
+          | VInt x, VInt y -> VBool (x = y)
+          | VBool x, VBool y -> VBool (x = y)
           (* Two objects are equal if and only if they are physically the same object 
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 == o2 && o1 = o2)
           | VNull, VNull -> VBool(true)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Neq ->
         begin
           match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VBool (n1 <> n2)
-          | VBool b1, VBool b2 -> VBool (b1 <> b2)
+          | VInt x, VInt y -> VBool (x <> y)
+          | VBool x, VBool y -> VBool (x <> y)
           (* Two objects are equal if and only if they are physically the same object 
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 != o2 && o1 <> o2)
           | VNull, VNull -> VBool(false)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | And ->
         begin
           match eval e1, eval e2 with
           | VBool b1, VBool b2 -> VBool ((&&) b1 b2)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Or ->
         begin
           match eval e1, eval e2 with
           | VBool b1, VBool b2 -> VBool ((||) b1 b2)
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
 
     and eval_call o m_name arg =
       (* Check if the class exists *)
       match List.find_opt (fun cl -> cl.class_name = o.cls ) p.classes with
-        | None -> failwith "Impossible : type_check work"
+        | None -> failwith "Impossible : typechecker's work"
         | Some c ->
           begin
             (* Check if the method in the class exists *)
             match List.find_opt (fun m -> m.method_name = m_name ) c.methods with
-              | None -> 
-                if m_name = "constructor" then
-                  failwith "Impossible : type_check work"
-                else
-                  failwith "Impossible : type_check work"
+              | None ->
+                failwith "Impossible : typechecker's work"
               | Some m ->
                 let args = Hashtbl.create 5 in
                 (* Add all the parameters in the local environment *)
@@ -188,7 +185,7 @@ let exec_prog p =
               eval e1
             else
               eval e2
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Get m ->
         begin
@@ -203,7 +200,7 @@ let exec_prog p =
                   (* Check if the variable is in the global environment *)
                   match Hashtbl.find_opt global_env s with
                   | Some v -> v
-                  | None -> failwith "Impossible : type_check work"
+                  | None -> failwith "Impossible : typechecker's work"
                 end
             end
           | Field (e, s) ->
@@ -215,9 +212,9 @@ let exec_prog p =
                   (* Check if the field exists *)
                   match Hashtbl.find_opt o.fields s with
                   | Some v -> v
-                  | None -> failwith "Impossible : type_check work"
+                  | None -> failwith "Impossible : typechecker's work"
                 end
-              | _ -> failwith "Impossible : type_check work"
+              | _ -> failwith "Impossible : typechecker's work"
             end
         end
       | This ->
@@ -225,7 +222,7 @@ let exec_prog p =
           (* Check if the variable is in the local environment *)
           match Hashtbl.find_opt local_env "@This" with
           | Some v -> v
-          | None -> failwith "Impossible : type_check work"
+          | None -> failwith "Impossible : typechecker's work"
         end
       | New s ->
         (* Create a new object *)
@@ -233,7 +230,7 @@ let exec_prog p =
         begin
           (* Check if the class exists *)
           match List.find_opt (fun cl -> cl.class_name = s ) p.classes with
-          | None -> failwith "Impossible : type_check work"
+          | None -> failwith "Impossible : typechecker's work"
           | Some c ->
             (* Set up all the attributes to VNull *)
             List.iter (fun (x, _) -> Hashtbl.replace o.fields x VNull ) c.attributes ;
@@ -250,7 +247,7 @@ let exec_prog p =
           (* Check if it's an object *)
           match eval e with
           | VObj o -> eval_call o s el
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
     in
     let rec exec i = 
@@ -262,6 +259,14 @@ let exec_prog p =
           | VBool b -> Printf.printf "%s\n" (if b then "true" else "false")
           | VObj o -> Printf.printf "%s\n" (string_of_obj o) 
           | VNull -> Printf.printf "null\n"
+        end
+      | Assert e ->
+        begin
+          match eval e with
+          | VBool b ->
+            if not b then
+              raise (Error "AssertionError")
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Set (m, e) ->
         begin
@@ -276,7 +281,7 @@ let exec_prog p =
                   (* Check if the variable is in the global environment *)
                   match Hashtbl.find_opt global_env s with
                   | Some _ -> Hashtbl.replace global_env s (eval e)
-                  | None -> failwith "Impossible : type_check work"
+                  | None -> failwith "Impossible : typechecker's work"
                 end
             end
           | Field (e', s) ->
@@ -288,9 +293,9 @@ let exec_prog p =
                   (* Check if the field exists *)
                   match Hashtbl.find_opt o.fields s with
                   | Some _ -> Hashtbl.replace o.fields s (eval e)
-                  | None -> failwith "Impossible : type_check work"
+                  | None -> failwith "Impossible : typechecker's work"
                 end
-              | _ -> failwith "Impossible : type_check work"
+              | _ -> failwith "Impossible : typechecker's work"
             end
         end
       | While (e, s) ->
@@ -304,7 +309,7 @@ let exec_prog p =
               end
             else
               ()
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | DoWhile (s, w) ->
         exec_seq s local_env ; (* do *)
@@ -323,7 +328,7 @@ let exec_prog p =
           | VBool b ->
             if b then
               exec_seq s local_env
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | If_Else (e, s, c) ->
         begin
@@ -333,7 +338,7 @@ let exec_prog p =
               exec_seq s local_env
             else
               exec_cond c
-          | _ -> failwith "Impossible : type_check work"
+          | _ -> failwith "Impossible : typechecker's work"
         end
       | Else s ->
         exec_seq s local_env

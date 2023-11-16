@@ -74,13 +74,18 @@ let typecheck_prog p =
             let t2 = type_expr e2 tenv in
             match t1, t2 with
             | TInt, TInt
-            | TVoid, TVoid
             | TBool, TBool -> TBool
+
+            (* Can't check type if there is a null : this is let for the interpreter *)
+            | _, TVoid
+            | TVoid, _ -> TBool
+
             | TClass s1, TClass s2 -> 
               if s1 = s2 then
                 TBool
               else
                 type_error t1 t2
+                
             | TInt, _
             | TBool, _
             | TClass _, _-> type_error t1 t2
@@ -176,7 +181,9 @@ let typecheck_prog p =
     match i with
     | Print e -> (* Print implemented for any type *)
       let _ = type_expr e tenv in 
-      () 
+      ()
+    | Assert e ->
+      check e TBool tenv
     | Set (m, e) ->
       check e (type_mem_access m tenv) tenv
     | Cond c -> check_cond c ret tenv

@@ -4,3 +4,4 @@ _build/
 _opam/
 rapport.md
 *.pdf
+kawa_tests.sh

@@ -48,6 +48,8 @@ and mem_access =
 type instr =
   (* Print a boolean or an int *)
   | Print  of expr
+  (* Check is something is true : else it terminates the program *)
+  | Assert of expr
   (* Set the content in a variable or an attribute *)
   | Set    of mem_access * expr
   (* Condition control *)
