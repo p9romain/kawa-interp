@@ -60,7 +60,7 @@ let () =
     (* Apply changes on every classes *)
     let prog = { prog with classes = List.map inherit_obj prog.classes }
     in
-    Typechecker.typecheck_prog prog ;
+    (* Typechecker.typecheck_prog prog ; *)
     Interpreter.exec_prog prog ;
     exit 0
   with

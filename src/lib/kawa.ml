@@ -5,12 +5,14 @@
 type typ =
   | TVoid
   | TInt
+  | TFloat
   | TBool
   | TClass of string
 
 let typ_to_string = function
   | TVoid -> "void"
   | TInt -> "int"
+  | TFloat -> "float"
   | TBool -> "bool"
   | TClass s -> s
 
@@ -24,6 +26,7 @@ type binop = Add | Sub | Mul | Div | Mod
 type expr =
   (* Arithmetic *)
   | Int      of int
+  | Float    of float
   | Bool     of bool
   | Null
   | Unop     of unop * expr

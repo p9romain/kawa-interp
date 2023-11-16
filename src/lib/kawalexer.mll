@@ -15,7 +15,7 @@
       "null",      NULL ;
 
       "int",       INT ;
-      (* "float",     FLOAT ; *)
+      "float",     FLOAT ;
       "bool",      BOOL ;
       "void",      VOID ;
 
@@ -47,8 +47,6 @@
     match Hashtbl.find_opt h s with
     | Some k -> k
     | None -> IDENT(s)
-    
-  let float_of_string f = 0.0 (* TODO *)
 }
 
 let digit = ['0'-'9']
@@ -57,7 +55,7 @@ let decimals = '.' digit+
 let integers = ( ['1'-'9'] digit+ ) | digit 
 
 let exponent = ['e' 'E'] '-'? integers
-let floats = decimals | ( integers decimals ) | ( integers decimals? exponent )
+let floats = decimals | ( integers '.' ) | ( integers decimals ) | ( integers decimals? exponent )
 
 (* Like Java *)
 let ident = (['a'-'z' 'A'-'Z'] | '_' ['a'-'z' 'A'-'Z']) (['a'-'z' 'A'-'Z'] | '_' | digit)*
@@ -70,7 +68,7 @@ rule token = parse
   | "/*"                { comment lexbuf; token lexbuf }
 
   | integers as n { N(int_of_string n) }
-  | floats as f { F(float_of_string f) }
+  | floats as f { F(Float.of_string f) }
   | ident as id { keyword_or_ident id }
 
   | "("  { LPAR }

@@ -2,6 +2,7 @@ open Kawa
 
 type value =
   | VInt  of int
+  | VFloat of float
   | VBool of bool
   | VObj  of obj
   | VNull
@@ -20,6 +21,7 @@ let rec string_of_obj o =
         (
           match v with
           | VInt n -> string_of_int n
+          | VFloat f -> Printf.sprintf "%F" f
           | VBool b -> if b then "true" else "false"
           | VObj o' -> string_of_obj o'
           | VNull -> "null"
@@ -52,6 +54,7 @@ let exec_prog p =
         begin
           match eval e with
           | VInt n -> VInt (-n)
+          | VFloat f -> VFloat (-.f)
           | _ -> failwith "Impossible : typechecker's work"
         end
       | Not ->
@@ -62,82 +65,61 @@ let exec_prog p =
         end
 
     and eval_binop op e1 e2 =
+      let num_to_num op_int op_float =
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VInt (op_int n1 n2)
+          | VFloat f, VInt n -> VFloat (op_float f (float n))
+          | VInt n, VFloat f -> VFloat (op_float (float n) f)
+          | VFloat f1, VFloat f2 -> VFloat (op_float f1 f2)
+          | _ -> failwith "Impossible : typechecker's work"
+        end
+      in
+      (* because of type inference..... *)
+      let compare op_int op_float =
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VBool (op_int n1 n2)
+          | VFloat f, VInt n -> VBool (op_float f (float n))
+          | VInt n, VFloat f -> VBool (op_float (float n) f)
+          | VFloat f1, VFloat f2 -> VBool (op_float f1 f2)
+          | _ -> failwith "Impossible : typechecker's work"
+        end
+      in
       match op with
-      | Add ->
-        begin
-          match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VInt ((+) n1 n2)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
-      | Sub ->
-        begin
-          match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VInt ((-) n1 n2)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
-      | Mul ->
-        begin
-          match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VInt (( * ) n1 n2)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
-      | Div ->
-        begin
-          match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VInt ((/) n1 n2)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
+      | Add -> num_to_num (+) (+.)
+      | Sub -> num_to_num (-) (-.)
+      | Mul -> num_to_num ( * ) ( *. )
+      | Div -> num_to_num (/) (/.)
       | Mod ->
         begin
           match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VInt ((mod) n1 n2)
+          | VInt n1, VInt n2 -> VInt (n1 mod n2)
           | _ -> failwith "Impossible : typechecker's work"
         end
-      | Le ->
-        begin
-          match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VBool ((<=) n1 n2)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
-      | Lt ->
-        begin
-          match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VBool ((<) n1 n2)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
-      | Ge ->
-        begin
-          match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VBool ((>=) n1 n2)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
-      | Gt ->
-        begin
-          match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VBool ((>) n1 n2)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
+      | Le -> compare (<=) (<=)
+      | Lt -> compare (<) (<)
+      | Ge -> compare (>=) (>=)
+      | Gt -> compare (>) (>)
       | Eq ->
         begin
           match eval e1, eval e2 with
-          | VInt x, VInt y -> VBool (x = y)
           | VBool x, VBool y -> VBool (x = y)
           (* Two objects are equal if and only if they are physically the same object 
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 == o2 && o1 = o2)
           | VNull, VNull -> VBool(true)
-          | _ -> failwith "Impossible : typechecker's work"
+          | _ -> compare (=) (=) (* For integers and floats *)
         end
       | Neq ->
         begin
           match eval e1, eval e2 with
-          | VInt x, VInt y -> VBool (x <> y)
           | VBool x, VBool y -> VBool (x <> y)
           (* Two objects are equal if and only if they are physically the same object 
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 != o2 && o1 <> o2)
           | VNull, VNull -> VBool(false)
-          | _ -> failwith "Impossible : typechecker's work"
+          | _ -> compare (<>) (<>) (* For integers and floats *)
         end
       | And ->
         begin
@@ -155,24 +137,30 @@ let exec_prog p =
     and eval_call o m_name arg =
       (* Check if the class exists *)
       match List.find_opt (fun cl -> cl.class_name = o.cls ) p.classes with
-        | None -> failwith "Impossible : typechecker's work"
-        | Some c ->
-          begin
-            (* Check if the method in the class exists *)
-            match List.find_opt (fun m -> m.method_name = m_name ) c.methods with
-              | None ->
-                failwith "Impossible : typechecker's work"
-              | Some m ->
-                let args = Hashtbl.create 5 in
-                (* Add all the parameters in the local environment *)
-                List.iter2 (fun e (x, _) -> Hashtbl.replace args x (eval e) ) arg m.params ;
-                (* Start the method call *)
-                exec_meth m o args
-          end
+      | Some c ->
+        begin
+          (* Check if the method in the class exists *)
+          match List.find_opt (fun m -> m.method_name = m_name ) c.methods with
+          | Some m ->
+            let args = Hashtbl.create 5 in
+            let assignment t e s =
+              match t, eval e with
+              | TInt, VFloat f -> Hashtbl.replace args s (VInt (int_of_float f))
+              | TFloat, VInt n -> Hashtbl.replace args s (VFloat (float n))
+              | _ -> Hashtbl.replace args s (eval e)
+            in
+            (* Add all the parameters in the local environment *)
+            List.iter2 (fun e (x, t) -> assignment t e x ) arg m.params ;
+            (* Start the method call *)
+            exec_meth m o args
+          | None -> raise (Error "")
+        end
+      | None -> raise (Error "")
 
     and eval e =
       match e with
       | Int n -> VInt n
+      | Float f -> VFloat f
       | Bool b -> VBool b
       | Null -> VNull
       | Unop (op, e) -> eval_unop op e
@@ -200,7 +188,7 @@ let exec_prog p =
                   (* Check if the variable is in the global environment *)
                   match Hashtbl.find_opt global_env s with
                   | Some v -> v
-                  | None -> failwith "Impossible : typechecker's work"
+                  | None -> raise (Error "")
                 end
             end
           | Field (e, s) ->
@@ -212,7 +200,7 @@ let exec_prog p =
                   (* Check if the field exists *)
                   match Hashtbl.find_opt o.fields s with
                   | Some v -> v
-                  | None -> failwith "Impossible : typechecker's work"
+                  | None -> raise (Error "")
                 end
               | _ -> failwith "Impossible : typechecker's work"
             end
@@ -222,7 +210,7 @@ let exec_prog p =
           (* Check if the variable is in the local environment *)
           match Hashtbl.find_opt local_env "@This" with
           | Some v -> v
-          | None -> failwith "Impossible : typechecker's work"
+          | None -> raise (Error "")
         end
       | New s ->
         (* Create a new object *)
@@ -230,11 +218,11 @@ let exec_prog p =
         begin
           (* Check if the class exists *)
           match List.find_opt (fun cl -> cl.class_name = s ) p.classes with
-          | None -> failwith "Impossible : typechecker's work"
           | Some c ->
             (* Set up all the attributes to VNull *)
             List.iter (fun (x, _) -> Hashtbl.replace o.fields x VNull ) c.attributes ;
             VObj o
+          | None -> raise (Error "")
         end
       | NewCstr (s, el) ->
         (* Create a new object *)
@@ -244,7 +232,6 @@ let exec_prog p =
         VObj o
       | MethCall (e, s, el) ->
         begin
-          (* Check if it's an object *)
           match eval e with
           | VObj o -> eval_call o s el
           | _ -> failwith "Impossible : typechecker's work"
@@ -256,6 +243,7 @@ let exec_prog p =
         begin
           match eval e with
           | VInt n -> Printf.printf "%d\n" n
+          | VFloat f -> Printf.printf "%F\n" f 
           | VBool b -> Printf.printf "%s\n" (if b then "true" else "false")
           | VObj o -> Printf.printf "%s\n" (string_of_obj o) 
           | VNull -> Printf.printf "null\n"
@@ -270,18 +258,24 @@ let exec_prog p =
         end
       | Set (m, e) ->
         begin
+          let assignment v s hash_tab =
+            match v, eval e with
+            | VInt _, VFloat f -> Hashtbl.replace hash_tab s (VInt (int_of_float f))
+            | VFloat _, VInt n -> Hashtbl.replace hash_tab s (VFloat (float n))
+            | _ -> Hashtbl.replace hash_tab s (eval e)
+          in
           match m with
           | Var s -> 
             begin
               (* Check if the variable is in the local environment *)
               match Hashtbl.find_opt local_env s with
-              | Some _ -> Hashtbl.replace local_env s (eval e)
+              | Some v -> assignment v s local_env
               | None ->
                 begin
                   (* Check if the variable is in the global environment *)
                   match Hashtbl.find_opt global_env s with
-                  | Some _ -> Hashtbl.replace global_env s (eval e)
-                  | None -> failwith "Impossible : typechecker's work"
+                  | Some v -> assignment v s global_env
+                  | None -> raise (Error "")
                 end
             end
           | Field (e', s) ->
@@ -292,8 +286,8 @@ let exec_prog p =
                 begin
                   (* Check if the field exists *)
                   match Hashtbl.find_opt o.fields s with
-                  | Some _ -> Hashtbl.replace o.fields s (eval e)
-                  | None -> failwith "Impossible : typechecker's work"
+                  | Some v -> assignment v s o.fields
+                  | None -> raise (Error "")
                 end
               | _ -> failwith "Impossible : typechecker's work"
             end

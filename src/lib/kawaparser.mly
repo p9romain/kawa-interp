@@ -84,6 +84,7 @@ attr_decl:
 
 typ:
 | INT { TInt }
+| FLOAT { TFloat }
 | BOOL { TBool }
 | i=IDENT { TClass i }
 | VOID { TVoid }
@@ -96,6 +97,7 @@ method_def:
 
 expr:
 | n=N { Int(n) }
+| f=F { Float(f) }
 
 | TRUE { Bool(true) }
 | FALSE { Bool(false) }
@@ -114,7 +116,8 @@ expr:
 | LPAR e=expr RPAR { e }
 
 | NEW i=IDENT { New i }
-| NEW i=IDENT LPAR arg=separated_list(COMMA, expr) RPAR 
+| NEW i=IDENT LPAR RPAR { New i }
+| NEW i=IDENT LPAR arg=separated_nonempty_list(COMMA, expr) RPAR 
     { NewCstr(i, arg) }
 
 | e=expr DOT i=IDENT LPAR arg=separated_list(COMMA, expr) RPAR

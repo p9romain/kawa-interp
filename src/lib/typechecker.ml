@@ -17,12 +17,19 @@ let typecheck_prog p =
 
   let rec check e typ_expected tenv =
     let typ_e = type_expr e tenv in
+    (* We allow x = null for anytime of x
+       We check if they have different types
+     *)
     if typ_e <> TVoid && typ_e <> typ_expected then
       begin
-        match typ_e with
-        | TClass cls_n -> (* for inheritance : A extends B => B is also of type A *)
+        match typ_e, typ_expected with
+        (* Type casting allowed for int and float *)
+        | TInt, TFloat
+        | TFloat, TInt -> ()
+         (* For inheritance : A extends B => B is also of type A *)
+        | TClass cls_n, TClass cls_expected ->
           let rec check_inheritance_type class_name =
-            if TClass(class_name) <> typ_expected then
+            if class_name <> cls_expected then
               begin
                 match List.find_opt (fun cl -> cl.class_name = class_name) p.classes with
                 | Some cl ->
@@ -31,7 +38,8 @@ let typecheck_prog p =
                       | Some s_pt -> check_inheritance_type s_pt
                       | None -> type_error typ_e typ_expected
                     end
-                | None -> error ("unbound value error: '" ^ class_name ^ "' class is not declared in the program.")
+                (* this one will disappear when I will changing the algo to manage inheritance *)
+                | None -> raise (Interpreter.Error ("unbound value error: '" ^ class_name ^ "' class is not declared in the program."))
               end 
           in
           check_inheritance_type cls_n
@@ -41,7 +49,8 @@ let typecheck_prog p =
   and type_expr e tenv = 
     match e with
     | Int _ -> TInt      
-    | Bool _ -> TBool     
+    | Bool _ -> TBool
+    | Float _ -> TFloat  
     | Null -> TVoid
     | Unop (op, e) ->
       begin
@@ -55,7 +64,17 @@ let typecheck_prog p =
         | Add
         | Sub 
         | Mul 
-        | Div 
+        | Div ->
+          begin
+            let t1 = type_expr e1 tenv in 
+            let t2 = type_expr e2 tenv in
+            match t1, t2 with
+            | TInt, TInt -> TInt
+            | TInt, TFloat
+            | TFloat, TInt
+            | TFloat, TFloat -> TFloat
+            | _ -> error "type error : the operator can be used on integers or floats"
+          end
         | Mod ->
           check e1 TInt tenv ;
           check e2 TInt tenv ;
@@ -64,9 +83,16 @@ let typecheck_prog p =
         | Lt  
         | Ge 
         | Gt ->
-          check e1 TInt tenv ;
-          check e2 TInt tenv ;
-          TBool
+          begin
+            let t1 = type_expr e1 tenv in 
+            let t2 = type_expr e2 tenv in
+            match t1, t2 with
+            | TInt, TInt
+            | TInt, TFloat
+            | TFloat, TInt
+            | TFloat, TFloat -> TBool
+            | _ -> error "type error : the operator can be used on integers or floats"
+          end
         | Eq  
         | Neq ->
           begin
@@ -74,6 +100,9 @@ let typecheck_prog p =
             let t2 = type_expr e2 tenv in
             match t1, t2 with
             | TInt, TInt
+            | TInt, TFloat
+            | TFloat, TInt
+            | TFloat, TFloat
             | TBool, TBool -> TBool
 
             (* Can't check type if there is a null : this is let for the interpreter *)
@@ -85,11 +114,12 @@ let typecheck_prog p =
                 TBool
               else
                 type_error t1 t2
-                
+
             | TInt, _
+            | TFloat, _
             | TBool, _
             | TClass _, _-> type_error t1 t2
-            | _, _ -> error "type error : can't compare types who aren't integers, booleans or objects."
+            | _ -> error "type error : can't compare types who aren't integers, floats, booleans or objects."
           end
         | And 
         | Or ->
@@ -114,12 +144,14 @@ let typecheck_prog p =
       begin
         match Env.find_opt "@This" tenv with
         | Some t -> t
+        (* todo *)
         | None -> error "unbound value error: can't access to 'this'.\nHint : are you inside a class ?"
       end
     | New s ->
       begin
         match List.find_opt (fun cl -> cl.class_name = s) p.classes with
         | Some _ -> TClass s
+        (* todo *)
         | None -> error ("unbound value error: '" ^ s ^ "' class is not declared in the program.")
       end   
     | NewCstr (s, el) -> 
@@ -143,9 +175,11 @@ let typecheck_prog p =
                   (* check if method is well-typed *)
                   check_seq m.code m.return tenv ;
                   m.return
+        (* todo *)
                 | None -> error ("unbound value error: can't acces the method '" ^ s 
                            ^ "' in the object of class '" ^ c ^ "'.")
               end
+        (* todo *)
             | None -> error ("unbound value error: '" ^ c ^ "' class is not declared in the program.")
           end
         | _ -> error "type error: can't access to a method of a non-class expression"
@@ -157,6 +191,7 @@ let typecheck_prog p =
       begin
         match Env.find_opt s tenv with
         | Some t -> t
+        (* todo *)
         | None -> error ("unbound value error: '" ^ s ^ "' is not declared in the scope.")
       end
     | Field (e, attr) ->
@@ -169,9 +204,11 @@ let typecheck_prog p =
               begin
                 match List.find_opt (fun (x, _) -> x = attr ) cl.attributes with
                 | Some (_, t) -> t
+        (* todo *)
                 | None -> error ("unbound value error: can't acces the field '" ^ attr 
                            ^ "' in the object of class '" ^ c ^ "'.")
               end
+        (* todo *)
             | None -> error ("unbound value error: '" ^ c ^ "' class is not declared in the program.")
           end
         | _ -> error "type error: can't access to a field of a non-class expression"
