@@ -21,6 +21,7 @@ type unop  = Opp | Not
 type binop = Add | Sub | Mul | Div | Mod
            | Le  | Lt  | Ge | Gt | Eq  | Neq
            | And | Or
+type setop = S_Set | S_Sub | S_Add | S_Mul | S_Div
 
 (* Expressions *)
 type expr =
@@ -54,7 +55,7 @@ type instr =
   (* Check is something is true : else it terminates the program *)
   | Assert of expr
   (* Set the content in a variable or an attribute *)
-  | Set    of mem_access * expr
+  | Set    of mem_access * setop * expr
   (* Condition control *)
   | Cond   of cond
   (* Loops *)

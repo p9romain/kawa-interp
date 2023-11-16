@@ -16,6 +16,7 @@
 %token LPAR RPAR BEGIN END SEMI
 
 %token PLUS U_MINUS MINUS TIMES SLASH MOD
+%token PLUS_SET MINUS_SET TIMES_SET SLASH_SET
 
 %token NOT AND OR
 %token LE LT GE GT EQ NEQ
@@ -39,6 +40,8 @@
    Source :
    [https://pages.cs.wisc.edu/~willb/cs302/java-operator-precedence.pdf]
 */
+%right SET PLUS_SET MINUS_SET TIMES_SET SLASH_SET
+
 %right INTERO TWO_PT
 
 %left OR
@@ -143,7 +146,7 @@ instr:
 | PRINT LPAR e=expr RPAR SEMI { Print e }
 | ASSERT LPAR e=expr RPAR SEMI { Assert e }
 
-| m=mem SET e=expr SEMI { Set(m, e) }
+| m=mem s=set e=expr SEMI { Set(m, s, e) }
 
 | c=cond { Cond(c) }
 
@@ -184,3 +187,10 @@ cond:
 
 | NOT     { Not }
 ;
+
+%inline set:
+| SET       { S_Set }
+| PLUS_SET  { S_Add }
+| MINUS_SET { S_Sub }
+| TIMES_SET { S_Mul }
+| SLASH_SET { S_Div }

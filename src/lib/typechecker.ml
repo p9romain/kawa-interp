@@ -213,8 +213,18 @@ let typecheck_prog p =
       ()
     | Assert e ->
       check e TBool tenv
-    | Set (m, e) ->
-      check e (type_mem_access m tenv) tenv
+    | Set (m, s, e) ->
+      begin
+        (* Get [m], then do the binary operator [op] with e, and then check if it's the same type as [m]*)
+        let op_then_set op = check (Binop(op, Get(m), e)) (type_mem_access m tenv) tenv
+        in
+        match s with
+        | S_Set -> check e (type_mem_access m tenv) tenv
+        | S_Add -> op_then_set Add
+        | S_Sub -> op_then_set Sub
+        | S_Mul -> op_then_set Mul
+        | S_Div -> op_then_set Div
+      end
     | Cond c -> check_cond c ret tenv
     | While (e, s) ->
       check e TBool tenv ;

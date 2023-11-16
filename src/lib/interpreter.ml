@@ -33,10 +33,10 @@ let rec string_of_obj o =
 (* Get the value of [m] in the local_env then in the global_env
 
   We also give eval because it is out of its definition
-  We also give f to use get_value in different usage (get the value vs assignment
+  We also give f to use mem_acces in different usage (get the value vs assignment
       which is a quite similar code !)
  *)
-let get_value m global_env local_env eval f =
+let mem_acces m global_env local_env eval f =
   match m with
   | Var s ->
     begin 
@@ -184,11 +184,11 @@ let exec_prog p =
           | Some m ->
             let args = Hashtbl.create 5 in
             (* For readability *)
-            let assignment t e s =
+            let assignment t e var_name =
               match t, eval e with
-              | TInt, VFloat f -> Hashtbl.replace args s (VInt (int_of_float f))
-              | TFloat, VInt n -> Hashtbl.replace args s (VFloat (float n))
-              | _ -> Hashtbl.replace args s (eval e)
+              | TInt, VFloat f -> Hashtbl.replace args var_name (VInt (int_of_float f))
+              | TFloat, VInt n -> Hashtbl.replace args var_name (VFloat (float n))
+              | _ -> Hashtbl.replace args var_name (eval e)
             in
             (* Add all the parameters in the local environment *)
             List.iter2 (fun e (x, t) -> assignment t e x ) arg m.params ;
@@ -218,7 +218,7 @@ let exec_prog p =
               eval e2
           | _ -> failwith "Impossible : typechecker's work"
         end
-      | Get m -> get_value m global_env local_env eval (fun _ _ x -> x)
+      | Get m -> mem_acces m global_env local_env eval (fun _ _ x -> x)
       | This ->
         begin 
           (* Check if the variable is in the local environment *)
@@ -272,15 +272,39 @@ let exec_prog p =
               raise (Error "AssertionError")
           | _ -> failwith "Impossible : typechecker's work"
         end
-      | Set (m, e) ->
-        (* For readability *)
-        let assignment s hash_tab v =
-          match v, eval e with
-          | VInt _, VFloat f -> Hashtbl.replace hash_tab s (VInt (int_of_float f))
-          | VFloat _, VInt n -> Hashtbl.replace hash_tab s (VFloat (float n))
-          | _ -> Hashtbl.replace hash_tab s (eval e)
-        in
-        get_value m global_env local_env eval assignment
+      | Set (m, s, e) ->
+        begin
+          (* For readability *)
+          let assignment new_value var_name hash_tab old_value =
+            match old_value, new_value with
+            (* type conversion, then assignment *)
+            | VInt _, VFloat f -> Hashtbl.replace hash_tab var_name (VInt (int_of_float f))
+            | VFloat _, VInt n -> Hashtbl.replace hash_tab var_name (VFloat (float n))
+            (* direct assignment *)
+            | _ -> Hashtbl.replace hash_tab var_name new_value
+          in
+          let op_then_set op =
+            let value_to_expr v =
+              match v with
+              | VInt n -> Int n
+              | VFloat f -> Float f
+              (* We are talking about arithmetic so... *)
+              | _ -> failwith "Impossible : typechecker's work."
+            in
+            (* Get the variable *)
+            let var = eval (Get(m)) in
+            (* Evaluate before assigning *)
+            let var_bop = eval (Binop(op, (value_to_expr var), e)) in
+            (* Assign *)
+            mem_acces m global_env local_env eval (assignment var_bop)
+          in
+          match s with
+          | S_Set -> mem_acces m global_env local_env eval (assignment (eval e))
+          | S_Add -> op_then_set Add
+          | S_Sub -> op_then_set Sub
+          | S_Mul -> op_then_set Mul
+          | S_Div -> op_then_set Div
+        end
       | While (e, s) ->
         begin
           match eval e with

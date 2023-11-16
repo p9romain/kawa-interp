@@ -71,36 +71,40 @@ rule token = parse
   | floats as f { F(Float.of_string f) }
   | ident as id { keyword_or_ident id }
 
-  | "("  { LPAR }
-  | ")"  { RPAR }
-  | "{"  { BEGIN }
-  | "}"  { END }
-  | ";"  { SEMI }
+  | "("   { LPAR }
+  | ")"   { RPAR }
+  | "{"   { BEGIN }
+  | "}"   { END }
+  | ";"   { SEMI }
 
-  | "+"  { PLUS }
-  | "-"  { MINUS }
-  | "*"  { TIMES }
-  | "/"  { SLASH }
-  | "%"  { MOD }
+  | "+"   { PLUS }
+  | "-"   { MINUS }
+  | "*"   { TIMES }
+  | "/"   { SLASH }
+  | "%"   { MOD }
 
-  | "!"  { NOT }
-  | "&&" { AND }
-  | "||" { OR  }
+  | "!"   { NOT }
+  | "&&"  { AND }
+  | "||"  { OR  }
 
-  | "<=" { LE }
-  | "<"  { LT }
-  | ">=" { GE }
-  | ">"  { GT }
-  | "==" { EQ }
-  | "!=" { NEQ }
+  | "<="  { LE }
+  | "<"   { LT }
+  | ">="  { GE }
+  | ">"   { GT }
+  | "=="  { EQ }
+  | "!="  { NEQ }
 
-  | "="  { SET }
+  | "="   { SET }
+  | "+="  { PLUS_SET }
+  | "-="  { MINUS_SET }
+  | "*="  { TIMES_SET }
+  | "/="  { SLASH_SET }
 
-  | "?"  { INTERO }
-  | ":"  { TWO_PT }
+  | "?"   { INTERO }
+  | ":"   { TWO_PT }
   
-  | "."  { DOT }
-  | ","  { COMMA }
+  | "."   { DOT }
+  | ","   { COMMA }
 
   | _   { raise (Error ("unknown character : " ^ lexeme lexbuf)) }
   | eof { EOF }
