@@ -30,6 +30,12 @@ let rec string_of_obj o =
     ) 
   o.fields "")
 
+(* Get the value of [m] in the local_env then in the global_env
+
+  We also give eval because it is out of its definition
+  We also give f to use get_value in different usage (get the value vs assignment
+      which is a quite similar code !)
+ *)
 let get_value m global_env local_env eval f =
   match m with
   | Var s ->
@@ -60,10 +66,12 @@ let get_value m global_env local_env eval f =
       | _ -> failwith "Impossible : typechecker's work"
     end
 
+(* Execute the main of [p] *)
 let exec_prog p =
   let global_env = Hashtbl.create 16 in
   List.iter (fun (x, _) -> Hashtbl.replace global_env x VNull) p.globals;
 
+  (* Execute the method [f args] in the object [this] *)
   let rec exec_meth f this args =
     (* Use an @ because i'm the only one who is allowed to do it (privelege) *)
     Hashtbl.replace args "@This" (VObj this) ;
@@ -77,7 +85,9 @@ let exec_prog p =
     with Return e ->
       e
 
+  (* Execute a seq [s] with the local environment [local_env] *)
   and exec_seq s local_env =
+    (* Evaluate an expression [e] with the unary operator [op] *)
     let rec eval_unop op e =
       match op with
       | Opp ->
@@ -94,27 +104,34 @@ let exec_prog p =
           | _ -> failwith "Impossible : typechecker's work"
         end
 
+    (* Evaluate two expressions [e1] and [e2] with the binary operator [op] *)
     and eval_binop op e1 e2 =
-      let num_to_num op_int op_float =
-        begin
-          match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VInt (op_int n1 n2)
-          | VFloat f, VInt n -> VFloat (op_float f (float n))
-          | VInt n, VFloat f -> VFloat (op_float (float n) f)
-          | VFloat f1, VFloat f2 -> VFloat (op_float f1 f2)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
+      let bool_to_bool op =
+        match eval e1, eval e2 with
+        | VBool b1, VBool b2 -> VBool (op b1 b2)
+        | _ -> failwith "Impossible : typechecker's work"
       in
-      (* because of type inference..... *)
+      (* Manage the int and float conversion *)
+      let num_to_num op_int op_float =
+        match eval e1, eval e2 with
+        | VInt n1, VInt n2 -> VInt (op_int n1 n2)
+        | VFloat f, VInt n -> VFloat (op_float f (float n))
+        | VInt n, VFloat f -> VFloat (op_float (float n) f)
+        | VFloat f1, VFloat f2 -> VFloat (op_float f1 f2)
+        | _ -> failwith "Impossible : typechecker's work"
+      in
+      (* Manage the int and float conversion 
+
+        Because of type inference there is two operator even 
+          it's the same one for both..... 
+      *)
       let compare op_int op_float =
-        begin
-          match eval e1, eval e2 with
-          | VInt n1, VInt n2 -> VBool (op_int n1 n2)
-          | VFloat f, VInt n -> VBool (op_float f (float n))
-          | VInt n, VFloat f -> VBool (op_float (float n) f)
-          | VFloat f1, VFloat f2 -> VBool (op_float f1 f2)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
+        match eval e1, eval e2 with
+        | VInt n1, VInt n2 -> VBool (op_int n1 n2)
+        | VFloat f, VInt n -> VBool (op_float f (float n))
+        | VInt n, VFloat f -> VBool (op_float (float n) f)
+        | VFloat f1, VFloat f2 -> VBool (op_float f1 f2)
+        | _ -> failwith "Impossible : typechecker's work"
       in
       match op with
       | Add -> num_to_num (+) (+.)
@@ -139,7 +156,8 @@ let exec_prog p =
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 == o2 && o1 = o2)
           | VNull, VNull -> VBool(true)
-          | _ -> compare (=) (=) (* For integers and floats *)
+          (* For integers and floats *)
+          | _ -> compare (=) (=)
         end
       | Neq ->
         begin
@@ -149,21 +167,13 @@ let exec_prog p =
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 != o2 && o1 <> o2)
           | VNull, VNull -> VBool(false)
-          | _ -> compare (<>) (<>) (* For integers and floats *)
+          (* For integers and floats *)
+          | _ -> compare (<>) (<>)
         end
-      | And ->
-        begin
-          match eval e1, eval e2 with
-          | VBool b1, VBool b2 -> VBool ((&&) b1 b2)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
-      | Or ->
-        begin
-          match eval e1, eval e2 with
-          | VBool b1, VBool b2 -> VBool ((||) b1 b2)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
+      | And -> bool_to_bool (&&)
+      | Or ->  bool_to_bool (||)
 
+    (* Evaluate the call of the [o]'s method [m_name arg]*)
     and eval_call o m_name arg =
       (* Check if the class exists *)
       match List.find_opt (fun cl -> cl.class_name = o.cls ) p.classes with
@@ -173,6 +183,7 @@ let exec_prog p =
           match List.find_opt (fun m -> m.method_name = m_name ) c.methods with
           | Some m ->
             let args = Hashtbl.create 5 in
+            (* For readability *)
             let assignment t e s =
               match t, eval e with
               | TInt, VFloat f -> Hashtbl.replace args s (VInt (int_of_float f))
@@ -188,6 +199,7 @@ let exec_prog p =
         end
       | None -> raise (Error ("unbound value error: '" ^ o.cls ^ "' class is not declared in the program."))
 
+    (* Evaluate an expression [e] *)
     and eval e =
       match e with
       | Int n -> VInt n
@@ -238,7 +250,9 @@ let exec_prog p =
           | VObj o -> eval_call o s el
           | _ -> failwith "Impossible : typechecker's work"
         end
+    
     in
+    (* Execute an instruction [i] *)
     let rec exec i = 
       match i with
       | Print e -> 
@@ -259,6 +273,7 @@ let exec_prog p =
           | _ -> failwith "Impossible : typechecker's work"
         end
       | Set (m, e) ->
+        (* For readability *)
         let assignment s hash_tab v =
           match v, eval e with
           | VInt _, VFloat f -> Hashtbl.replace hash_tab s (VInt (int_of_float f))
@@ -273,7 +288,7 @@ let exec_prog p =
             if b then
               begin
                 exec_seq s local_env ;
-                exec_seq [ While(e, s) ] local_env
+                exec i
               end
             else
               ()
@@ -281,13 +296,12 @@ let exec_prog p =
         end
       | DoWhile (s, w) ->
         exec_seq s local_env ; (* do *)
-        exec_seq [ w ] local_env (* while *)
+        exec w (* while *)
       | Cond c -> exec_cond c
       | Return e -> raise (Return (eval e))
-      | Expr e -> 
-        match eval e with
-        | _ -> ()
+      | Expr e -> let _ = eval e in ()
 
+    (* Execute a condition instruction [c] *)
     and exec_cond c =
       match c with
       | If (e, s) ->
@@ -308,10 +322,10 @@ let exec_prog p =
               exec_cond c
           | _ -> failwith "Impossible : typechecker's work"
         end
-      | Else s ->
-        exec_seq s local_env
+      | Else s -> exec_seq s local_env
 
     in
+    (* Execute the sequence [s] *)
     List.iter exec s
   in
   exec_seq p.main (Hashtbl.create 1)

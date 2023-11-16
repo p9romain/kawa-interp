@@ -70,10 +70,14 @@ seq:
 | BEGIN body=list(instr) END { body }
 ;
 
+
+
 class_def:
 | CLASS i=IDENT pt=option(EXTENDS p=IDENT { p }) BEGIN attr=flatten(list(attr_decl)) meth=list(method_def) END
     { { class_name = i ; attributes = attr ; methods = meth ; parent = pt } }
 ;
+
+
 
 var_decl:
 | VAR t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI { List.map (fun i -> (i, t) ) l }
@@ -81,6 +85,8 @@ var_decl:
 attr_decl:
 | ATTR t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI { List.map (fun i -> (i, t) ) l }
 ;
+
+
 
 typ:
 | INT { TInt }
@@ -90,10 +96,14 @@ typ:
 | VOID { TVoid }
 ;
 
+
+
 method_def:
 | METHOD t=typ i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN var=flatten(list(var_decl)) body=list(instr) END
     { { method_name = i ; code = body ; params = arg ; locals = var ; return = t } }
 ;
+
+
 
 expr:
 | n=N { Int(n) }
@@ -122,11 +132,12 @@ expr:
 | e=expr DOT i=IDENT LPAR arg=separated_list(COMMA, expr) RPAR
     { MethCall(e, i, arg) }
 ;
-
 mem:
 | i=IDENT { Var i }
 | e=expr DOT i=IDENT { Field(e, i) }
 ;
+
+
 
 instr:
 | PRINT LPAR e=expr RPAR SEMI { Print e }
@@ -143,12 +154,13 @@ instr:
 
 | e=expr SEMI { Expr e }
 ;
-
 cond:
 | IF LPAR e=expr RPAR s=seq { If(e, s) }
 | IF LPAR e=expr RPAR s1=seq ELSE s2=seq { If_Else(e, s1, Else(s2)) }
 | IF LPAR e=expr RPAR s=seq ELSE c=cond { If_Else(e, s, c) }
 ;
+
+
 
 %inline bop :
 | PLUS  { Add }

@@ -50,7 +50,7 @@ let () =
               | None -> true
               | Some _ -> false
             in
-            (field c) @ (List.filter aux (get_all field comp pt_cl))
+            (field c) @ (List.filter aux @@ get_all field comp pt_cl)
         end
     in
     (* Change class's attributes and methods (adding inherited ones) *)
@@ -59,8 +59,13 @@ let () =
     in
     (* Apply changes on every classes *)
     let prog = { prog with classes = List.map inherit_obj prog.classes }
+
+
+
+
+
     in
-    (* Typechecker.typecheck_prog prog ; *)
+    Typechecker.typecheck_prog prog ;
     Interpreter.exec_prog prog ;
     exit 0
   with
