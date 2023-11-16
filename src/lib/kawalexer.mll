@@ -9,15 +9,15 @@
   let h = Hashtbl.create 17 in
   let () = List.iter (fun (s, k) -> Hashtbl.add h s k)
     [ 
-      "true",      BOOL(true) ;
-      "false",     BOOL(false) ;
+      "true",      TRUE ;
+      "false",     FALSE ;
 
       "null",      NULL ;
 
-      "int",       TYPE(TInt) ;
-      (* "float",     TYPE(TFloat) ; *)
-      "bool",      TYPE(TBool) ;
-      "void",      TYPE(TVoid) ;
+      "int",       INT ;
+      (* "float",     FLOAT ; *)
+      "bool",      BOOL ;
+      "void",      VOID ;
 
       "var",       VAR ;
 
@@ -68,8 +68,8 @@ rule token = parse
   | "//" [^ '\n']* "\n" { new_line lexbuf; token lexbuf }
   | "/*"                { comment lexbuf; token lexbuf }
 
-  | integers as n { INT(int_of_string n) }
-  | floats as f { FLOAT(float_of_string f) }
+  | integers as n { N(int_of_string n) }
+  | floats as f { F(float_of_string f) }
   | ident as id { keyword_or_ident id }
 
   | "("  { LPAR }

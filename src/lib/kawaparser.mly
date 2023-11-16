@@ -5,12 +5,13 @@
 
 %}
 
-%token <int> INT
-%token <float> FLOAT
-%token <bool> BOOL
+%token <int> N
+%token <float> F
+%token TRUE FALSE
 %token NULL
+
+%token INT FLOAT BOOL VOID
 %token <string> IDENT
-%token <Kawa.typ> TYPE
 
 %token LPAR RPAR BEGIN END SEMI
 
@@ -62,130 +63,89 @@
 %%
 
 program:
-| var=declaration_var cls=list(class_def) MAIN BEGIN body=list(instruction) END EOF
+| var=flatten(list(var_decl)) cls=list(class_def) MAIN BEGIN body=list(instr) END EOF
     { { classes = cls ; globals = var ; main = body } }
 ;
 
-
 class_def:
-| CLASS i=IDENT BEGIN END
-    { { class_name = i ; attributes = [] ; methods = [] ; parent = None } }
-| CLASS i=IDENT BEGIN attr=declaration_attr END
-    { { class_name = i ; attributes = attr ; methods = [] ; parent = None } }
-| CLASS i=IDENT BEGIN meth=nonempty_list(methods) END
-    { { class_name = i ; attributes = [] ; methods = meth ; parent = None } }
-| CLASS i=IDENT BEGIN attr=declaration_attr meth=nonempty_list(methods) END
-    { { class_name = i ; attributes = attr ; methods = meth ; parent = None } }
-| CLASS i=IDENT EXTENDS p=IDENT BEGIN END
-    { { class_name = i ; attributes = [] ; methods = [] ; parent = Some(p) } }
-| CLASS i=IDENT EXTENDS p=IDENT BEGIN attr=declaration_attr END
-    { { class_name = i ; attributes = attr ; methods = [] ; parent = Some(p) } }
-| CLASS i=IDENT EXTENDS p=IDENT BEGIN meth=nonempty_list(methods) END
-    { { class_name = i ; attributes = [] ; methods = meth ; parent = Some(p) } }
-| CLASS i=IDENT EXTENDS p=IDENT BEGIN attr=declaration_attr meth=nonempty_list(methods) END
-    { { class_name = i ; attributes = attr ; methods = meth ; parent = Some(p) } }
+| CLASS i=IDENT pt=option(EXTENDS p=IDENT { p }) BEGIN attr=flatten(list(attr_decl)) meth=list(method_def) END
+    { { class_name = i ; attributes = attr ; methods = meth ; parent = pt } }
 ;
 
-/* Allowing "var int x, y ;" */
-variable:
-| VAR t=TYPE i=IDENT SEMI { (i, t) }
-| VAR t=IDENT i=IDENT SEMI { (i, TClass(t)) }
+var_decl:
+| VAR t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI { List.map (fun i -> (i, t) ) l }
 ;
-list_var_attr:
-| i=IDENT { [ i ] }
-| i=IDENT COMMA v=list_var_attr { i :: v }
-;
-declaration_var:
-| v=variable { [ v ] }
-| v=variable d=declaration_var { v :: d }
-| VAR t=TYPE i=IDENT COMMA v=list_var_attr SEMI { (i, t) :: (List.map (fun i -> (i, t)) v) }
-| VAR t=TYPE i=IDENT COMMA v=list_var_attr SEMI d=declaration_var { (i, t) :: ((List.map (fun i -> (i, t)) v) @ d) }
-;
-attribute:
-| ATTR t=TYPE i=IDENT SEMI { (i, t) }
-| ATTR t=IDENT i=IDENT SEMI { (i, TClass(t)) }
-;
-declaration_attr:
-| a=attribute { [ a ] }
-| a=attribute d=declaration_attr { a :: d }
-| VAR t=TYPE i=IDENT COMMA v=list_var_attr SEMI { (i, t) :: (List.map (fun i -> (i, t)) v) }
-| VAR t=TYPE i=IDENT COMMA v=list_var_attr SEMI d=declaration_attr { (i, t) :: ((List.map (fun i -> (i, t)) v) @ d) }
+attr_decl:
+| ATTR t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI { List.map (fun i -> (i, t) ) l }
 ;
 
-methods:
-| METHOD t=TYPE i=IDENT LPAR RPAR BEGIN var=declaration_var body=list(instruction) END 
-    { { method_name = i ; code = body ; params = [] ; locals = var ; return = t } }
-| METHOD t=TYPE i=IDENT LPAR args=arg RPAR BEGIN var=declaration_var body=list(instruction) END 
-    { { method_name = i ; code = body ; params = args ; locals = var ; return = t } }
-;
-arg:
-| t=TYPE i=IDENT             { [ (i, t) ]  }
-| t=TYPE i=IDENT COMMA a=arg { (i, t) :: a }
+typ:
+| INT { TInt }
+| BOOL { TBool }
+| i=IDENT { TClass i }
+| VOID { TVoid }
 ;
 
-
-expression:
-| n=INT                                   { Int(n)            }
-| b=BOOL                                  { Bool(b)           }
-| NULL                                    { Null              }
-
-| THIS                                    { This              }
-| m=mem_access                            { Get(m)            }
-
-| op=uop e=expression                     { Unop(op, e)       }
-| e1=expression op=bop e2=expression      { Binop(op, e1, e2) }
-
-| LPAR e=expression RPAR                  { e                 }
-
-| NEW i=IDENT                             { New(i)            }
-| NEW i=IDENT LPAR RPAR                   { NewCstr(i, [])    }
-| NEW i=IDENT LPAR e=expression_list RPAR { NewCstr(i, e)     }
-
-| e=expression DOT i=IDENT LPAR RPAR 
-    { MethCall(e, i, []) }
-| e=expression DOT i=IDENT LPAR el=expression_list RPAR 
-    { MethCall(e, i, el) }
-
-| e1=expression INTERO e2=expression TWO_PT e3=expression
-    { TerCond(e1, e2, e3) }
-;
-expression_list:
-| e=expression                          { [ e ]   }
-| e=expression COMMA el=expression_list { e :: el }
-
-
-mem_access:
-| i=IDENT                   { Var(i)      }
-| e=expression DOT i=IDENT  { Field(e, i) }
+method_def:
+| METHOD t=typ i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN var=flatten(list(var_decl)) body=list(instr) END
+    { { method_name = i ; code = body ; params = arg ; locals = var ; return = t } }
 ;
 
+expr:
+| n=N { Int(n) }
 
-instruction:
-| PRINT LPAR e=expression RPAR SEMI                             
-    { Print(e) }
-| m=mem_access SET e=expression SEMI                                 
-    { Set(m, e) }
-| c=condition                                                   
-    { Cond(c) }
-| WHILE LPAR e=expression RPAR BEGIN body=list(instruction) END
-    { While(e, body) }
-| DO BEGIN body=list(instruction) END WHILE LPAR e=expression RPAR SEMI
-    { DoWhile(body, While(e, body)) }
-| RETURN e=expression SEMI
-    { Return(e) }
-| e=expression SEMI
-    { Expr(e) }
+| TRUE { Bool(true) }
+| FALSE { Bool(false) }
 
+| NULL { Null }
+
+| u=uop e=expr { Unop(u, e) }
+| e1=expr b=bop e2=expr { Binop(b, e1, e2) }
+
+| t=expr INTERO e1=expr TWO_PT e2=expr { TerCond(t, e1, e2) }
+
+| m=mem { Get(m) }
+
+| THIS { This }
+
+| LPAR e=expr RPAR { e }
+
+| NEW i=IDENT { New i }
+| NEW i=IDENT LPAR arg=separated_list(COMMA, expr) RPAR 
+    { NewCstr(i, arg) }
+
+| e=expr DOT i=IDENT LPAR arg=separated_list(COMMA, expr) RPAR
+    { MethCall(e, i, arg) }
 ;
-condition:
-| IF LPAR e=expression RPAR BEGIN body=list(instruction) END
+
+mem:
+| i=IDENT { Var i }
+| e=expr DOT i=IDENT { Field(e, i) }
+;
+
+instr:
+| PRINT LPAR e=expr RPAR SEMI { Print e }
+
+| m=mem SET e=expr SEMI { Set(m, e) }
+
+| c=cond { Cond(c) }
+
+| WHILE LPAR e=expr RPAR BEGIN body=list(instr) END { While(e, body) }
+| DO BEGIN body=list(instr) END WHILE LPAR e=expr RPAR SEMI { DoWhile(body, While(e, body)) }
+
+| RETURN e=expr SEMI { Return e }
+
+| e=expr SEMI { Expr e }
+;
+
+cond:
+| IF LPAR e=expr RPAR BEGIN body=list(instr) END
     { If(e, body) }
-| IF LPAR e=expression RPAR BEGIN body1=list(instruction) END ELSE BEGIN body2=list(instruction) END
+| IF LPAR e=expr RPAR BEGIN body1=list(instr) END ELSE BEGIN body2=list(instr) END
     { If_Else(e, body1, Else(body2)) }
-| IF LPAR e=expression RPAR BEGIN body=list(instruction) END ELSE c=condition
+| IF LPAR e=expr RPAR BEGIN body=list(instr) END ELSE c=cond
     { If_Else(e, body, c) }
 ;
-
 
 %inline bop :
 | PLUS  { Add }
