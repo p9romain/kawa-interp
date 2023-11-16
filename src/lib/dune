@@ -9,6 +9,6 @@
 
 (menhir
   (modules kawaparser)
-  (flags --explain --dump)
+  (flags -v)
   (infer true)
 )
