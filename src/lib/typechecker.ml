@@ -144,15 +144,14 @@ let typecheck_prog p =
       begin
         match Env.find_opt "@This" tenv with
         | Some t -> t
-        (* todo *)
-        | None -> error "unbound value error: can't access to 'this'.\nHint : are you inside a class ?"
+        (* there is an issue : the interpreter manage this *)
+        | None -> TVoid
       end
     | New s ->
       begin
         match List.find_opt (fun cl -> cl.class_name = s) p.classes with
         | Some _ -> TClass s
-        (* todo *)
-        | None -> error ("unbound value error: '" ^ s ^ "' class is not declared in the program.")
+        | None -> TVoid
       end   
     | NewCstr (s, el) -> 
       let t = type_expr (New s) tenv in
@@ -175,12 +174,9 @@ let typecheck_prog p =
                   (* check if method is well-typed *)
                   check_seq m.code m.return tenv ;
                   m.return
-        (* todo *)
-                | None -> error ("unbound value error: can't acces the method '" ^ s 
-                           ^ "' in the object of class '" ^ c ^ "'.")
+                | None -> TVoid
               end
-        (* todo *)
-            | None -> error ("unbound value error: '" ^ c ^ "' class is not declared in the program.")
+            | None -> TVoid
           end
         | _ -> error "type error: can't access to a method of a non-class expression"
       end
@@ -191,8 +187,7 @@ let typecheck_prog p =
       begin
         match Env.find_opt s tenv with
         | Some t -> t
-        (* todo *)
-        | None -> error ("unbound value error: '" ^ s ^ "' is not declared in the scope.")
+        | None -> TVoid 
       end
     | Field (e, attr) ->
       begin
@@ -204,12 +199,9 @@ let typecheck_prog p =
               begin
                 match List.find_opt (fun (x, _) -> x = attr ) cl.attributes with
                 | Some (_, t) -> t
-        (* todo *)
-                | None -> error ("unbound value error: can't acces the field '" ^ attr 
-                           ^ "' in the object of class '" ^ c ^ "'.")
+                | None -> TVoid
               end
-        (* todo *)
-            | None -> error ("unbound value error: '" ^ c ^ "' class is not declared in the program.")
+            | None -> error "Impossible : already check if the class exists"
           end
         | _ -> error "type error: can't access to a field of a non-class expression"
       end

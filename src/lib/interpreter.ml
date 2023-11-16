@@ -30,10 +30,40 @@ let rec string_of_obj o =
     ) 
   o.fields "")
 
+let get_value m global_env local_env eval f =
+  match m with
+  | Var s ->
+    begin 
+      (* Check if the variable is in the local environment *)
+      match Hashtbl.find_opt local_env s with
+      | Some v -> f s local_env v
+      | None ->
+        begin 
+          (* Check if the variable is in the global environment *)
+          match Hashtbl.find_opt global_env s with
+          | Some v -> f s global_env v
+          | None -> raise (Error ("unbound value error: '" ^ s ^ "' is not declared in the scope."))
+        end
+    end
+  | Field (e, s) ->
+    begin
+      (* Check if it's an object *)
+      match eval e with
+      | VObj o -> 
+        begin
+          (* Check if the field exists *)
+          match Hashtbl.find_opt o.fields s with
+          | Some v -> f s o.fields v
+          | None -> raise (Error ("unbound value error: can't acces the field '" ^ s 
+                                     ^ "' in the object of class '" ^ o.cls ^ "'."))
+        end
+      | _ -> failwith "Impossible : typechecker's work"
+    end
+
 let exec_prog p =
   let global_env = Hashtbl.create 16 in
   List.iter (fun (x, _) -> Hashtbl.replace global_env x VNull) p.globals;
-  
+
   let rec exec_meth f this args =
     (* Use an @ because i'm the only one who is allowed to do it (privelege) *)
     Hashtbl.replace args "@This" (VObj this) ;
@@ -153,9 +183,10 @@ let exec_prog p =
             List.iter2 (fun e (x, t) -> assignment t e x ) arg m.params ;
             (* Start the method call *)
             exec_meth m o args
-          | None -> raise (Error "")
+          | None -> raise (Error ("unbound value error: can't acces the method '" ^ m_name 
+                           ^ "' in the object of class '" ^ o.cls ^ "'."))
         end
-      | None -> raise (Error "")
+      | None -> raise (Error ("unbound value error: '" ^ o.cls ^ "' class is not declared in the program."))
 
     and eval e =
       match e with
@@ -175,42 +206,13 @@ let exec_prog p =
               eval e2
           | _ -> failwith "Impossible : typechecker's work"
         end
-      | Get m ->
-        begin
-          match m with
-          | Var s ->
-            begin 
-              (* Check if the variable is in the local environment *)
-              match Hashtbl.find_opt local_env s with
-              | Some v -> v
-              | None ->
-                begin 
-                  (* Check if the variable is in the global environment *)
-                  match Hashtbl.find_opt global_env s with
-                  | Some v -> v
-                  | None -> raise (Error "")
-                end
-            end
-          | Field (e, s) ->
-            begin
-              (* Check if it's an object *)
-              match eval e with
-              | VObj o -> 
-                begin
-                  (* Check if the field exists *)
-                  match Hashtbl.find_opt o.fields s with
-                  | Some v -> v
-                  | None -> raise (Error "")
-                end
-              | _ -> failwith "Impossible : typechecker's work"
-            end
-        end
+      | Get m -> get_value m global_env local_env eval (fun _ _ x -> x)
       | This ->
         begin 
           (* Check if the variable is in the local environment *)
           match Hashtbl.find_opt local_env "@This" with
           | Some v -> v
-          | None -> raise (Error "")
+          | None -> raise (Error "unbound value error: can't access to 'this'.\nHint : are you inside a class ?")
         end
       | New s ->
         (* Create a new object *)
@@ -222,7 +224,7 @@ let exec_prog p =
             (* Set up all the attributes to VNull *)
             List.iter (fun (x, _) -> Hashtbl.replace o.fields x VNull ) c.attributes ;
             VObj o
-          | None -> raise (Error "")
+          | None -> raise (Error ("unbound value error: '" ^ s ^ "' class is not declared in the program."))
         end
       | NewCstr (s, el) ->
         (* Create a new object *)
@@ -257,41 +259,13 @@ let exec_prog p =
           | _ -> failwith "Impossible : typechecker's work"
         end
       | Set (m, e) ->
-        begin
-          let assignment v s hash_tab =
-            match v, eval e with
-            | VInt _, VFloat f -> Hashtbl.replace hash_tab s (VInt (int_of_float f))
-            | VFloat _, VInt n -> Hashtbl.replace hash_tab s (VFloat (float n))
-            | _ -> Hashtbl.replace hash_tab s (eval e)
-          in
-          match m with
-          | Var s -> 
-            begin
-              (* Check if the variable is in the local environment *)
-              match Hashtbl.find_opt local_env s with
-              | Some v -> assignment v s local_env
-              | None ->
-                begin
-                  (* Check if the variable is in the global environment *)
-                  match Hashtbl.find_opt global_env s with
-                  | Some v -> assignment v s global_env
-                  | None -> raise (Error "")
-                end
-            end
-          | Field (e', s) ->
-            begin
-              (* Check if it's an object *)
-              match eval e' with
-              | VObj o -> 
-                begin
-                  (* Check if the field exists *)
-                  match Hashtbl.find_opt o.fields s with
-                  | Some v -> assignment v s o.fields
-                  | None -> raise (Error "")
-                end
-              | _ -> failwith "Impossible : typechecker's work"
-            end
-        end
+        let assignment s hash_tab v =
+          match v, eval e with
+          | VInt _, VFloat f -> Hashtbl.replace hash_tab s (VInt (int_of_float f))
+          | VFloat _, VInt n -> Hashtbl.replace hash_tab s (VFloat (float n))
+          | _ -> Hashtbl.replace hash_tab s (eval e)
+        in
+        get_value m global_env local_env eval assignment
       | While (e, s) ->
         begin
           match eval e with
