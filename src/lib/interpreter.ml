@@ -242,7 +242,7 @@ let exec_prog p =
         (* Create a new object *)
         let VObj(o) = eval (New s) in
         (* Call the constructor *)
-        let _ = eval_call o "constructor" el in
+        let _ = eval_call o s el in
         VObj o
       | MethCall (e, s, el) ->
         begin

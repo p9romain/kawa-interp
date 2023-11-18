@@ -38,7 +38,7 @@ let typecheck_prog p =
                       | Some s_pt -> check_inheritance_type s_pt
                       | None -> type_error typ_e typ_expected
                     end
-                | None -> raise (Interpreter.Error ("unbound value error: '" ^ class_name ^ "' class is not declared in the program."))
+                | None -> error ("unbound value error: '" ^ class_name ^ "' class is not declared in the program.")
               end 
           in
           check_inheritance_type cls_n
@@ -154,7 +154,7 @@ let typecheck_prog p =
       end   
     | NewCstr (s, el) -> 
       let t = type_expr (New s) tenv in
-      let () = check (MethCall(New s, "constructor", el)) TVoid tenv in
+      let () = check (MethCall(New s, s, el)) TVoid tenv in
       t
     | MethCall (e, s, el) ->
       begin

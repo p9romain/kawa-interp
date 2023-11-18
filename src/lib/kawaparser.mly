@@ -94,8 +94,12 @@ seq:
 
 
 class_def:
-| CLASS i=IDENT pt=option(EXTENDS p=IDENT { p }) BEGIN attr=flatten(list(attr_decl)) meth=list(method_def) END
-  { { class_name = i ; attributes = attr ; methods = meth ; parent = pt } }
+| CLASS i=IDENT pt=option(EXTENDS p=IDENT { p }) BEGIN attr=flatten(list(attr_decl)) cstr=option(constructor_def) meth=list(method_def) END
+  { 
+    match cstr with
+    | Some c -> { class_name = i ; attributes = attr ; methods = (c :: meth) ; parent = pt }
+    | None -> { class_name = i ; attributes = attr ; methods = meth ; parent = pt } 
+  }
 ;
 
 
@@ -122,7 +126,13 @@ typ:
 ;
 
 
-
+constructor_def:
+| i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN var=list(var_decl) body=list(instr) END
+  {
+    let var, set = init_and_setting_vars var in
+    { method_name = i ; code = set @ body ; params = arg ; locals = var ; return = TVoid } 
+  }
+;
 method_def:
 | METHOD t=typ i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN var=list(var_decl) body=list(instr) END
   { 
