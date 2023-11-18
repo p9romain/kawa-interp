@@ -3,12 +3,17 @@
   open Lexing
   open Kawa
 
+  (* Manage the setting when initialiasing a variable
+
+    Var is a ((string * typ) * expr) list
+  *)
   let init_and_setting_vars var =
     let rec var_set l =
     match l with
     | [] -> []
     | s :: l -> 
       begin
+        (* get rid of non-initialisation, so Null : it will be set to null anyway by the program before starting *)
         match s with
         | Set _ -> s :: var_set l
         | _ -> var_set l
@@ -80,6 +85,7 @@
 
 %%
 
+/* The idea of splitting program and class_def like this came from a friend of mine : I thank them */
 program:
 | prog=program_variables
   { 
