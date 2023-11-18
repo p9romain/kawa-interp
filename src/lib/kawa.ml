@@ -26,22 +26,24 @@ type setop = S_Set | S_Sub | S_Add | S_Mul | S_Div
 (* Expressions *)
 type expr =
   (* Arithmetic *)
-  | Int      of int
-  | Float    of float
-  | Bool     of bool
+  | Int        of int
+  | Float      of float
+  | Bool       of bool
   | Null
-  | Unop     of unop * expr
-  | Binop    of binop * expr * expr
-  | TerCond  of expr * expr * expr
+  | Unop       of unop * expr
+  | Binop      of binop * expr * expr
+  | TerCond    of expr * expr * expr
+  (* Check if an object is an instance of a certain class *)
+  | InstanceOf of expr * typ
   (* Get the content of a var or an attributte *)
-  | Get      of mem_access
+  | Get        of mem_access
   (* Current object *)
   | This
   (* Create a new object *)
-  | New      of string
-  | NewCstr  of string * expr list
+  | New        of string
+  | NewCstr    of string * expr list
   (* Call a method *)
-  | MethCall of expr * string * expr list
+  | MethCall   of expr * string * expr list
 
 (* Memory access : either a variable or an attribute *)
 and mem_access =

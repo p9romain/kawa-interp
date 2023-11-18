@@ -44,6 +44,8 @@ let typecheck_prog p =
     | Null -> TVoid
     | Unop (op, e) ->
       begin
+        (* Check if [e] is well-typed *)
+        type_expr e tenv ;
         match op with
         | Opp -> TInt
         | Not -> TBool
@@ -128,6 +130,10 @@ let typecheck_prog p =
         else
           (* t1 or t2 are void *)
           TVoid
+    | InstanceOf (e, t) ->
+      (* Check if [e] is well-typed *)
+      type_expr e tenv ;
+      TBool
     | Get m -> type_mem_access m tenv
     | This ->
       begin
@@ -153,6 +159,7 @@ let typecheck_prog p =
           let cl = Interpreter.get_class p.classes c in
           match Hashtbl.find_opt cl.methods s with
           | Some m -> 
+            (* Check if every expr in [el] is well-typed *)
             List.iter2 (fun e (_, t) -> check e t tenv) el m.params ;
             (* Create local environment with (in this order) :
                global + this + params (we already checked type) + local var of the method *)
@@ -188,7 +195,9 @@ let typecheck_prog p =
   (* change here from "in let rec" to "and" because I need it in type_expr (MethCall) *)
   and check_instr i ret tenv = 
     match i with
-    | Print e -> (* Print implemented for any type *)
+    (* Print implemented for any type *)
+    | Print e ->
+      (* Check if [e] is well-typed *)
       let _ = type_expr e tenv in 
       ()
     | Assert e ->

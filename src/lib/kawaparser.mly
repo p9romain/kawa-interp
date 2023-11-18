@@ -54,10 +54,11 @@
 
 %token MAIN
 %token PRINT ASSERT
+%token INSTANCEOF
 %token EOF
 
 
-/* Priority from Java (I put them all, even if it's useless)
+/* Priority from Java
 
    Source :
    [https://pages.cs.wisc.edu/~willb/cs302/java-operator-precedence.pdf]
@@ -67,7 +68,7 @@
 %left OR
 %left AND
 %left EQ NEQ
-%left LE LT GE GT
+%left LE LT GE GT INSTANCEOF
 %nonassoc NOT
 
 %left PLUS MINUS 
@@ -235,6 +236,8 @@ expr:
 | e1=expr b=bop e2=expr { Binop(b, e1, e2) }
 
 | t=expr INTERO e1=expr TWO_PT e2=expr { TerCond(t, e1, e2) }
+
+| e=expr INSTANCEOF t=typ { InstanceOf(e, t) }
 
 | m=mem { Get(m) }
 

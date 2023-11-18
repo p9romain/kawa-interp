@@ -236,6 +236,37 @@ let exec_prog p =
               eval e2
           | _ -> failwith "Impossible : typechecker's work"
         end
+      | InstanceOf (e, t) ->
+        begin
+          let typ_e = 
+            begin
+              match eval e with
+              | VInt _ -> TInt
+              | VFloat _ -> TFloat
+              | VBool _ -> TBool
+              | VObj o -> TClass (o.cls)
+              | VNull -> TVoid
+            end
+          in
+          match typ_e, t with
+          | TInt, TInt
+          | TFloat, TFloat
+          | TBool, TBool -> VBool true
+          | TClass c1, TClass c2 ->
+            (* Check if the class exists *)
+            let _ = get_class c2 in
+            let rec check_inheritance_type c =
+              if c <> c2 then
+                let cl = get_class c in
+                  match cl.parent with
+                  | Some s_pt -> check_inheritance_type s_pt
+                  | None -> VBool false
+              else
+                VBool true
+            in
+            check_inheritance_type c1
+          | _, _ -> VBool false
+        end
       | Get m -> mem_access m eval (fun _ _ x -> x)
       | This ->
         begin 
