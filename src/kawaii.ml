@@ -21,7 +21,7 @@ let () =
 
 
 
-    (* In order to get an interpreter as I started to write, I choose to implment inheritance like this :
+    (* I choose to implment inheritance like this :
        At the start, here, I "flatten" all the inheritance. 
 
        For exemple, if A has an attribute 'a', and B inherits from A and has an attribute 'b', then in B.attributes
@@ -30,8 +30,6 @@ let () =
        If I understood well my OCamL class, it will be memory share so it isn't an issue.(im waiting for something to try
        out if it's true) 
     *)
-
-    (* The type checker has to navigate through inheritance so it's probably not optimal at all as I first thought *)
 
     (* Get all the methods or attributes we need to inherit *)
     let rec get_all field comp c =

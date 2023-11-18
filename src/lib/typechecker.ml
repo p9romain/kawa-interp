@@ -38,7 +38,6 @@ let typecheck_prog p =
                       | Some s_pt -> check_inheritance_type s_pt
                       | None -> type_error typ_e typ_expected
                     end
-                (* this one will disappear when I will changing the algo to manage inheritance *)
                 | None -> raise (Interpreter.Error ("unbound value error: '" ^ class_name ^ "' class is not declared in the program."))
               end 
           in
