@@ -36,14 +36,14 @@
 %token NOT AND OR
 %token LE LT GE GT EQ NEQ
 
-%token VAR SET
+%token SET
 
 %token INTERO TWO_PT IF ELSE
 %token DO WHILE FOR
 
 %token NEW CLASS EXTENDS
-%token THIS DOT ATTR
-%token METHOD COMMA RETURN
+%token THIS DOT
+%token COMMA RETURN
 
 %token MAIN
 %token PRINT ASSERT
@@ -81,37 +81,67 @@
 %%
 
 program:
-| var=list(var_decl) cls=list(class_def) MAIN s=seq EOF
+| prog=program_variables
   { 
-    let var, set = init_and_setting_vars var in
-    { classes = cls ; globals = var ; main = set @ s } 
+    let vars, cls, main = prog in
+    let vars, set = init_and_setting_vars vars in
+    { classes = cls ; globals = vars ; main = (set @ main) } 
   }
+;
+/* To get rid of 'var' keyword */
+program_variables:
+| var=var_decl prog=program_variables
+  { 
+    let vars, cls, main = prog in
+    var :: vars, cls, main
+  }
+| cls=program_classes
+  { [], (fst cls), (snd cls) }
+;
+program_classes:
+| c=class_def cls=program_classes
+  { (c :: (fst cls)), (snd cls) }
+| MAIN s=seq EOF { [], s }
 ;
 seq:
 | BEGIN body=list(instr) END { body }
 ;
 
 
-
 class_def:
-| CLASS i=IDENT pt=option(EXTENDS p=IDENT { p }) BEGIN attr=flatten(list(attr_decl)) cstr=option(constructor_def) meth=list(method_def) END
-  { 
-    match cstr with
-    | Some c -> { class_name = i ; attributes = attr ; methods = (c :: meth) ; parent = pt }
-    | None -> { class_name = i ; attributes = attr ; methods = meth ; parent = pt } 
-  }
+| CLASS i=IDENT pt=option(EXTENDS p=IDENT { p }) BEGIN cls=class_def_attributes
+  { { class_name = i ; attributes = fst cls ; methods = snd cls ; parent = pt }  } 
+;
+/* To get rid of 'attribute' and 'method' keywords*/
+class_def_attributes:
+| attr=attr_decl cls=class_def_attributes
+  { (attr @ (fst cls)), (snd cls) }
+| meths=class_def_constructor
+  { [], meths }
+;
+class_def_constructor:
+| c=constructor_def meths=class_def_methods
+  { c :: meths }
+| meths=class_def_methods
+  { meths }
+;
+class_def_methods:
+| m=method_def meths=class_def_methods
+  { m :: meths }
+| END
+  { [] }
 ;
 
 
 
 var_decl:
-| VAR t=typ i=IDENT SET e=expr SEMI
+| t=typ i=IDENT SET e=expr SEMI
   { [ (i, t) ], Set(Var(i), S_Set, e) }
-| VAR t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI 
+| t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI 
   { (List.map (fun i -> (i, t) ) l), Expr(Null) }
 ;
 attr_decl:
-| ATTR t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI 
+| t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI 
   { List.map (fun i -> (i, t) ) l }
 ;
 
@@ -127,19 +157,33 @@ typ:
 
 
 constructor_def:
-| i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN var=list(var_decl) body=list(instr) END
+| i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN vars=constructor_variables END
   {
+    let var, body = vars in
     let var, set = init_and_setting_vars var in
     { method_name = i ; code = set @ body ; params = arg ; locals = var ; return = TVoid } 
   }
 ;
+/* To get rid of 'var' keyword */
+constructor_variables:
+| var=var_decl vars=constructor_variables
+  { (var :: (fst vars)), (snd vars) }
+| body=list(instr)
+  { [], body }
 method_def:
-| METHOD t=typ i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN var=list(var_decl) body=list(instr) END
+| t=typ i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN vars=method_variables END
   { 
+    let var, body = vars in
     let var, set = init_and_setting_vars var in
     { method_name = i ; code = set @ body ; params = arg ; locals = var ; return = t } 
   }
 ;
+/* To get rid of 'var' keyword */
+method_variables:
+| var=var_decl vars=method_variables
+  { (var :: (fst vars)), (snd vars) }
+| body=list(instr)
+  { [], body }
 
 
 

@@ -19,8 +19,6 @@
       "bool",      BOOL ;
       "void",      VOID ;
 
-      "var",       VAR ;
-
       "if",        IF ;
       "else",      ELSE ;
 
@@ -33,9 +31,7 @@
       "extends",   EXTENDS ;
 
       "this",      THIS ;
-      "attribute", ATTR ;
 
-      "method",    METHOD ;
       "return",    RETURN ;
 
       "main",      MAIN ;
