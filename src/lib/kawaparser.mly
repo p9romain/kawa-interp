@@ -3,6 +3,21 @@
   open Lexing
   open Kawa
 
+  let init_and_setting_vars var =
+    let rec var_set l =
+    match l with
+    | [] -> []
+    | s :: l -> 
+      begin
+        match s with
+        | Set _ -> s :: var_set l
+        | _ -> var_set l
+      end
+    in
+    let set = var_set (List.map snd var) in
+    let var = List.flatten (List.map fst var) in
+    var, set
+
 %}
 
 %token <int> N
@@ -35,7 +50,7 @@
 %token EOF
 
 
-/* Priority from Java
+/* Priority from Java (I put them all, even if it's useless)
 
    Source :
    [https://pages.cs.wisc.edu/~willb/cs302/java-operator-precedence.pdf]
@@ -66,8 +81,11 @@
 %%
 
 program:
-| var=flatten(list(var_decl)) cls=list(class_def) MAIN s=seq EOF
-    { { classes = cls ; globals = var ; main = s } }
+| var=list(var_decl) cls=list(class_def) MAIN s=seq EOF
+  { 
+    let var, set = init_and_setting_vars var in
+    { classes = cls ; globals = var ; main = set @ s } 
+  }
 ;
 seq:
 | BEGIN body=list(instr) END { body }
@@ -77,16 +95,20 @@ seq:
 
 class_def:
 | CLASS i=IDENT pt=option(EXTENDS p=IDENT { p }) BEGIN attr=flatten(list(attr_decl)) meth=list(method_def) END
-    { { class_name = i ; attributes = attr ; methods = meth ; parent = pt } }
+  { { class_name = i ; attributes = attr ; methods = meth ; parent = pt } }
 ;
 
 
 
 var_decl:
-| VAR t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI { List.map (fun i -> (i, t) ) l }
+| VAR t=typ i=IDENT SET e=expr SEMI
+  { [ (i, t) ], Set(Var(i), S_Set, e) }
+| VAR t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI 
+  { (List.map (fun i -> (i, t) ) l), Expr(Null) }
 ;
 attr_decl:
-| ATTR t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI { List.map (fun i -> (i, t) ) l }
+| ATTR t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI 
+  { List.map (fun i -> (i, t) ) l }
 ;
 
 
@@ -102,8 +124,11 @@ typ:
 
 
 method_def:
-| METHOD t=typ i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN var=flatten(list(var_decl)) body=list(instr) END
-    { { method_name = i ; code = body ; params = arg ; locals = var ; return = t } }
+| METHOD t=typ i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN var=list(var_decl) body=list(instr) END
+  { 
+    let var, set = init_and_setting_vars var in
+    { method_name = i ; code = set @ body ; params = arg ; locals = var ; return = t } 
+  }
 ;
 
 
@@ -130,10 +155,10 @@ expr:
 
 | NEW i=IDENT { New i }
 | NEW i=IDENT LPAR arg=separated_list(COMMA, expr) RPAR 
-    { NewCstr(i, arg) }
+  { NewCstr(i, arg) }
 
 | e=expr DOT i=IDENT LPAR arg=separated_list(COMMA, expr) RPAR
-    { MethCall(e, i, arg) }
+  { MethCall(e, i, arg) }
 ;
 mem:
 | i=IDENT { Var i }
