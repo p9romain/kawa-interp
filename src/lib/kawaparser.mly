@@ -21,7 +21,9 @@
     in
     let set = var_set (List.map snd var) in
     let var = List.flatten (List.map fst var) in
-    var, set
+    let var_hash = Hashtbl.create 5 in
+    let () = List.iter (fun (x, t) -> Hashtbl.replace var_hash x t) var in
+    var_hash, set
 
 %}
 
@@ -60,8 +62,6 @@
    Source :
    [https://pages.cs.wisc.edu/~willb/cs302/java-operator-precedence.pdf]
 */
-%right SET PLUS_SET MINUS_SET TIMES_SET SLASH_SET
-
 %right INTERO TWO_PT
 
 %left OR
@@ -74,9 +74,7 @@
 %left TIMES SLASH MOD
 %nonassoc U_MINUS
 
-%right NEW
-
-%left DOT COMMA
+%left DOT
 
 
 
@@ -91,7 +89,32 @@ program:
   { 
     let vars, cls, main = prog in
     let vars, set = init_and_setting_vars vars in
-    { classes = cls ; globals = vars ; main = (set @ main) } 
+
+    (* Better than a list *)
+    let cls_hash = Hashtbl.create 5 in
+    let () = List.iter (fun c -> Hashtbl.replace cls_hash c.class_name c) cls in
+    (* Flatten all attributes with inheritance *)
+    let rec inheritance c_name c =
+      (* Find the parent *)
+      match c.parent with
+      | Some p ->
+        begin
+          (* Get the parent's class *)
+          let p_cls = Interpreter.get_class cls_hash p in
+          (* We keep the 'youngest' attribute so if it's already in it, we do not
+            want to erase it *)
+          let add_but_not_erase x t =
+            match Hashtbl.find_opt c.attributes x with
+            | None -> Hashtbl.replace c.attributes x t
+            | Some _ -> ()
+          in
+          let () = Hashtbl.iter add_but_not_erase p_cls.attributes in
+          inheritance p p_cls
+        end
+      | None -> ()
+    in
+    let () = Hashtbl.iter inheritance cls_hash in
+    { classes = cls_hash ; globals = vars ; main = (set @ main) } 
   }
 ;
 /* To get rid of 'var' keyword */
@@ -116,7 +139,13 @@ seq:
 
 class_def:
 | CLASS i=IDENT pt=option(EXTENDS p=IDENT { p }) BEGIN cls=class_def_attributes
-  { { class_name = i ; attributes = fst cls ; methods = snd cls ; parent = pt }  } 
+  { 
+    let attr_hash = Hashtbl.create 5 in
+    let () = List.iter (fun (x, t) -> Hashtbl.replace attr_hash x t) (fst cls) in
+    let meth_hash = Hashtbl.create 5 in
+    let () = List.iter (fun m -> Hashtbl.replace meth_hash m.method_name m) (snd cls) in
+    { class_name = i ; attributes = attr_hash ; methods = meth_hash ; parent = pt }  
+  } 
 ;
 /* To get rid of 'attribute' and 'method' keywords*/
 class_def_attributes:
@@ -166,8 +195,8 @@ constructor_def:
 | i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN vars=constructor_variables END
   {
     let var, body = vars in
-    let var, set = init_and_setting_vars var in
-    { method_name = i ; code = set @ body ; params = arg ; locals = var ; return = TVoid } 
+    let vars, set = init_and_setting_vars var in
+    { method_name = i ; code = set @ body ; params = arg ; locals = vars ; return = TVoid } 
   }
 ;
 /* To get rid of 'var' keyword */
@@ -180,8 +209,8 @@ method_def:
 | t=typ i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN vars=method_variables END
   { 
     let var, body = vars in
-    let var, set = init_and_setting_vars var in
-    { method_name = i ; code = set @ body ; params = arg ; locals = var ; return = t } 
+    let vars, set = init_and_setting_vars var in
+    { method_name = i ; code = set @ body ; params = arg ; locals = vars ; return = t } 
   }
 ;
 /* To get rid of 'var' keyword */

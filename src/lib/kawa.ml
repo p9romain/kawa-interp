@@ -78,11 +78,13 @@ and seq = instr list
 
    Method's body is similar to the main's body *)
 type method_def = {
-    method_name: string;
-    code: seq;
-    params: (string * typ) list;
-    locals: (string * typ) list;
-    return: typ;
+    method_name: string ;
+    code: seq ;
+    (* can't change into a Hashtbl because it needs to be ordered 
+      (and the params are an expr list so it keeps the order) *)
+    params: (string * typ) list ;
+    locals: (string, typ) Hashtbl.t ;
+    return: typ ;
   }
         
 (* Class's definition
@@ -92,15 +94,15 @@ type method_def = {
 
    The class's constructor is a void-typed method called "constructor" *)
 type class_def = {
-    class_name: string;
-    attributes: (string * typ) list;
-    methods: method_def list;
-    parent: string option;
+    class_name: string ;
+    attributes: (string, typ) Hashtbl.t ;
+    methods: (string, method_def) Hashtbl.t ;
+    parent: string option ;
   }
 
-(* Program : global variables, classes, and an instruction sequence (the main) *)
+(* Program : global variables, classes, inheritances and a sequence of instruction (the main) *)
 type program = {
-    classes: class_def list;
-    globals: (string * typ) list;
-    main: seq;
+    classes: (string, class_def) Hashtbl.t ;
+    globals: (string, typ) Hashtbl.t ;
+    main: seq ;
   }

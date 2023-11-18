@@ -17,52 +17,6 @@ let () =
   try
     let prog = Kawaparser.program Kawalexer.token lb in
     close_in c;
-    
-
-
-
-    (* I choose to implment inheritance like this :
-       At the start, here, I "flatten" all the inheritance. 
-
-       For exemple, if A has an attribute 'a', and B inherits from A and has an attribute 'b', then in B.attributes
-       there are 'a' and 'b', literally.
-
-       If I understood well my OCamL class, it will be memory share so it isn't an issue.(im waiting for something to try
-       out if it's true) 
-    *)
-
-    (* Get all the methods or attributes we need to inherit *)
-    let rec get_all field comp c =
-      match c.parent with
-      | None -> (field c)
-      | Some pt ->
-        begin
-          match List.find_opt ( fun cl -> cl.class_name = pt ) prog.classes with
-          | None -> failwith ("unbound value error: '" ^ pt ^ "' class is not declared in the scope.")
-          | Some pt_cl ->
-            (* If the child has a method/an attribute called 'A', and inherit from a class who also has 
-            a method/an attribute called 'A', then we keep the child's one.
-            *)
-            let aux e = (* get rid of duplicates *)
-              match List.find_opt (comp e) (field c) with
-              | None -> true
-              | Some _ -> false
-            in
-            (field c) @ (List.filter aux @@ get_all field comp pt_cl)
-        end
-    in
-    (* Change class's attributes and methods (adding inherited ones) *)
-    let inherit_obj c = { c with attributes = get_all (fun x -> x.attributes) (fun (e, _) (x, _) -> x = e) c ; 
-                                  methods = get_all (fun x -> x.methods) (fun e m-> e.method_name = m.method_name) c } 
-    in
-    (* Apply changes on every classes *)
-    let prog = { prog with classes = List.map inherit_obj prog.classes }
-
-
-
-
-
-    in
     Typechecker.typecheck_prog prog ;
     Interpreter.exec_prog prog ;
     exit 0

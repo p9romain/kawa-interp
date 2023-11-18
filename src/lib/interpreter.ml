@@ -14,6 +14,7 @@ and obj = {
 exception Error of string
 exception Return of value
 
+(* For printing an object *)
 let rec string_of_obj o =
   Printf.sprintf "Object<%s>(%s)" o.cls (Hashtbl.fold 
     (fun k v acc -> 
@@ -30,13 +31,20 @@ let rec string_of_obj o =
     ) 
   o.fields "")
 
+(* To get classes of name [c_name]*)
+let get_class cls_hash c_name =
+  (* Check if the class exists *)
+  match Hashtbl.find_opt cls_hash c_name with
+  | Some cl -> cl
+  | None -> raise (Error ("unbound value error: '" ^ c_name ^ "' class is not declared in the program."))
+
 (* Get the value of [m] in the local_env then in the global_env
 
   We also give eval because it is out of its definition
-  We also give f to use mem_acces in different usage (get the value vs assignment
+  We also give f to use mem_access in different usage (get the value vs assignment
       which is a quite similar code !)
  *)
-let mem_acces m global_env local_env eval f =
+let mem_access global_env local_env m eval f =
   match m with
   | Var s ->
     begin 
@@ -60,7 +68,7 @@ let mem_acces m global_env local_env eval f =
           (* Check if the field exists *)
           match Hashtbl.find_opt o.fields s with
           | Some v -> f s o.fields v
-          | None -> raise (Error ("unbound value error: can't acces the field '" ^ s 
+          | None -> raise (Error ("unbound value error: can't access the field '" ^ s 
                                      ^ "' in the object of class '" ^ o.cls ^ "'."))
         end
       | _ -> failwith "Impossible : typechecker's work"
@@ -69,14 +77,16 @@ let mem_acces m global_env local_env eval f =
 (* Execute the main of [p] *)
 let exec_prog p =
   let global_env = Hashtbl.create 16 in
-  List.iter (fun (x, _) -> Hashtbl.replace global_env x VNull) p.globals;
+  (* alias *)
+  let get_class = get_class p.classes in 
+  Hashtbl.iter (fun x _ -> Hashtbl.replace global_env x VNull) p.globals;
 
   (* Execute the method [f args] in the object [this] *)
   let rec exec_meth f this args =
     (* Use an @ because i'm the only one who is allowed to do it (privelege) *)
     Hashtbl.replace args "@This" (VObj this) ;
     (* Add local variables *)
-    List.iter (fun (x, _) -> Hashtbl.replace args x VNull) f.locals ;
+    Hashtbl.iter (fun x _ -> Hashtbl.replace args x VNull) f.locals ;
     (* Execute method *)
     try
       exec_seq f.code args ;
@@ -87,6 +97,8 @@ let exec_prog p =
 
   (* Execute a seq [s] with the local environment [local_env] *)
   and exec_seq s local_env =
+   (* alias *)
+    let mem_access = mem_access global_env local_env in
     (* Evaluate an expression [e] with the unary operator [op] *)
     let rec eval_unop op e =
       match op with
@@ -175,29 +187,35 @@ let exec_prog p =
 
     (* Evaluate the call of the [o]'s method [m_name arg]*)
     and eval_call o m_name arg =
-      (* Check if the class exists *)
-      match List.find_opt (fun cl -> cl.class_name = o.cls ) p.classes with
-      | Some c ->
-        begin
-          (* Check if the method in the class exists *)
-          match List.find_opt (fun m -> m.method_name = m_name ) c.methods with
-          | Some m ->
-            let args = Hashtbl.create 5 in
-            (* For readability *)
-            let assignment t e var_name =
-              match t, eval e with
-              | TInt, VFloat f -> Hashtbl.replace args var_name (VInt (int_of_float f))
-              | TFloat, VInt n -> Hashtbl.replace args var_name (VFloat (float n))
-              | _ -> Hashtbl.replace args var_name (eval e)
-            in
-            (* Add all the parameters in the local environment *)
-            List.iter2 (fun e (x, t) -> assignment t e x ) arg m.params ;
-            (* Start the method call *)
-            exec_meth m o args
-          | None -> raise (Error ("unbound value error: can't acces the method '" ^ m_name 
-                           ^ "' in the object of class '" ^ o.cls ^ "'."))
-        end
-      | None -> raise (Error ("unbound value error: '" ^ o.cls ^ "' class is not declared in the program."))
+      (* Call the method [m]*)
+      let method_call m =
+        let args = Hashtbl.create 5 in
+        (* For readability *)
+        let assignment t e var_name =
+          match t, eval e with
+          | TInt, VFloat f -> Hashtbl.replace args var_name (VInt (int_of_float f))
+          | TFloat, VInt n -> Hashtbl.replace args var_name (VFloat (float n))
+          | _ -> Hashtbl.replace args var_name (eval e)
+        in
+        (* Add all the parameters in the local environment *)
+        List.iter2 (fun e (x, t) -> assignment t e x ) arg m.params ;
+        (* Start the method call *)
+        exec_meth m o args
+      in
+      let c = get_class o.cls in
+      let rec inheritance c =
+        (* Check if the method exists *)
+        match Hashtbl.find_opt c.methods m_name with
+        | Some m -> method_call m
+        | None -> 
+          begin
+            (* If not, check for the parent *)
+            match c.parent with
+            | Some p -> inheritance (get_class p)
+            | None -> raise (Error ("unbound value error: can't access the method '" ^ m_name ^ "' in the object of class '" ^ c.class_name ^ "'.")) 
+          end
+      in
+      inheritance c
 
     (* Evaluate an expression [e] *)
     and eval e =
@@ -218,7 +236,7 @@ let exec_prog p =
               eval e2
           | _ -> failwith "Impossible : typechecker's work"
         end
-      | Get m -> mem_acces m global_env local_env eval (fun _ _ x -> x)
+      | Get m -> mem_access m eval (fun _ _ x -> x)
       | This ->
         begin 
           (* Check if the variable is in the local environment *)
@@ -229,19 +247,13 @@ let exec_prog p =
       | New s ->
         (* Create a new object *)
         let o = { cls = s ; fields = Hashtbl.create 5 } in
-        begin
-          (* Check if the class exists *)
-          match List.find_opt (fun cl -> cl.class_name = s ) p.classes with
-          | Some c ->
-            (* Set up all the attributes to VNull *)
-            List.iter (fun (x, _) -> Hashtbl.replace o.fields x VNull ) c.attributes ;
-            VObj o
-          | None -> raise (Error ("unbound value error: '" ^ s ^ "' class is not declared in the program."))
-        end
+        let c = get_class s in
+        let () = Hashtbl.iter (fun x _ -> Hashtbl.replace o.fields x VNull ) c.attributes in
+        VObj o
       | NewCstr (s, el) ->
         (* Create a new object *)
         let VObj(o) = eval (New s) in
-        (* Call the constructor *)
+        (* Call the constructor called by the same name as the class, so [s]*)
         let _ = eval_call o s el in
         VObj o
       | MethCall (e, s, el) ->
@@ -276,12 +288,18 @@ let exec_prog p =
         begin
           (* For readability *)
           let assignment new_value var_name hash_tab old_value =
-            match old_value, new_value with
-            (* type conversion, then assignment *)
-            | VInt _, VFloat f -> Hashtbl.replace hash_tab var_name (VInt (int_of_float f))
-            | VFloat _, VInt n -> Hashtbl.replace hash_tab var_name (VFloat (float n))
-            (* direct assignment *)
-            | _ -> Hashtbl.replace hash_tab var_name new_value
+            let () = 
+              begin
+                match old_value, new_value with
+                (* type conversion, then assignment *)
+                | VInt _, VFloat f -> Hashtbl.replace hash_tab var_name (VInt (int_of_float f))
+                | VFloat _, VInt n -> Hashtbl.replace hash_tab var_name (VFloat (float n))
+                (* direct assignment *)
+                | _ -> Hashtbl.replace hash_tab var_name new_value
+              end
+            in
+            (* You may ask, why ? Because of OCamL type inference and the alias mem_access*)
+            VNull
           in
           let op_then_set op =
             let value_to_expr v =
@@ -296,10 +314,13 @@ let exec_prog p =
             (* Evaluate before assigning *)
             let var_bop = eval (Binop(op, (value_to_expr var), e)) in
             (* Assign *)
-            mem_acces m global_env local_env eval (assignment var_bop)
+            let _ = mem_access m eval (assignment var_bop) in
+            ()
           in
           match s with
-          | S_Set -> mem_acces m global_env local_env eval (assignment (eval e))
+          | S_Set -> 
+            let _ = mem_access m eval (assignment (eval e)) in
+            ()
           | S_Add -> op_then_set Add
           | S_Sub -> op_then_set Sub
           | S_Mul -> op_then_set Mul

@@ -9,14 +9,11 @@ let type_error ty_actual ty_expected =
 module Env = Map.Make(String)
 type tenv = typ Env.t
 
-let add_env l tenv =
-  List.fold_left (fun env (x, t) -> Env.add x t env) tenv l
-
 let typecheck_prog p =
-  let tenv = add_env p.globals Env.empty in
+  let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) p.globals Env.empty in
 
-  let rec check e typ_expected tenv =
-    let typ_e = type_expr e tenv in
+  let rec check e typ_expected tenv = ()
+    (* let typ_e = type_expr e tenv in
     (* We allow x = null for anytime of x
        We check if they have different types
      *)
@@ -43,7 +40,7 @@ let typecheck_prog p =
           in
           check_inheritance_type cls_n
         | _ -> type_error typ_e typ_expected
-      end
+      end *)
 
   and type_expr e tenv = 
     match e with
@@ -118,7 +115,6 @@ let typecheck_prog p =
             | TFloat, _
             | TBool, _
             | TClass _, _-> type_error t1 t2
-            | _ -> error "type error : can't compare types who aren't integers, floats, booleans or objects."
           end
         | And 
         | Or ->
@@ -148,7 +144,7 @@ let typecheck_prog p =
       end
     | New s ->
       begin
-        match List.find_opt (fun cl -> cl.class_name = s) p.classes with
+        match Hashtbl.find_opt p.classes s with
         | Some _ -> TClass s
         | None -> TVoid
       end   
@@ -160,23 +156,21 @@ let typecheck_prog p =
       begin
         match type_expr e tenv with
         | TClass c ->
-          begin
-            match List.find_opt (fun cl -> cl.class_name = c) p.classes with
-            | Some cl -> 
-              begin
-                match List.find_opt (fun m -> m.method_name = s ) cl.methods with
-                | Some m -> 
-                  List.iter2 (fun e (_, t) -> check e t tenv) el m.params ;
-                  (* Create local environment with :
-                     global + this + params (we already checked type) + local var of the method *)
-                  let tenv = add_env ([("@This", TClass c)] @ m.params @ m.locals @ p.globals) Env.empty in
-                  (* check if method is well-typed *)
-                  check_seq m.code m.return tenv ;
-                  m.return
-                | None -> TVoid
-              end
-            | None -> TVoid
-          end
+          let cl = Interpreter.get_class p.classes c in
+          match Hashtbl.find_opt cl.methods s with
+          | Some m -> 
+            List.iter2 (fun e (_, t) -> check e t tenv) el m.params ;
+            (* Create local environment with (in this order) :
+               global + this + params (we already checked type) + local var of the method *)
+            let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) p.globals Env.empty in
+            let tenv = Env.add "@This" (TClass c) tenv in
+            let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) m.locals tenv in
+            let tenv = List.fold_left (fun acc (x, t) -> Env.add x t acc) tenv m.params 
+            in
+            (* check if method is well-typed *)
+            check_seq m.code m.return tenv ;
+            m.return
+          | None -> TVoid
         | _ -> error "type error: can't access to a method of a non-class expression"
       end
 
@@ -192,17 +186,10 @@ let typecheck_prog p =
       begin
         match type_expr e tenv with
         | TClass c ->
-          begin
-            match List.find_opt (fun cl -> cl.class_name = c) p.classes with
-            | Some cl -> 
-              begin
-                match List.find_opt (fun (x, _) -> x = attr ) cl.attributes with
-                | Some (_, t) -> t
-                | None -> TVoid
-              end
-            | None -> error "Impossible : already check if the class exists"
-          end
-        | _ -> error "type error: can't access to a field of a non-class expression"
+          let cl = Interpreter.get_class p.classes c in
+          match Hashtbl.find_opt cl.attributes attr with
+          | Some t -> t
+          | None -> TVoid
       end
   (* change here from "in let rec" to "and" because I need it in type_expr (MethCall) *)
   and check_instr i ret tenv = 
