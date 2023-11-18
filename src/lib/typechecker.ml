@@ -12,8 +12,8 @@ type tenv = typ Env.t
 let typecheck_prog p =
   let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) p.globals Env.empty in
 
-  let rec check e typ_expected tenv = ()
-    (* let typ_e = type_expr e tenv in
+  let rec check e typ_expected tenv =
+    let typ_e = type_expr e tenv in
     (* We allow x = null for anytime of x
        We check if they have different types
      *)
@@ -27,20 +27,14 @@ let typecheck_prog p =
         | TClass cls_n, TClass cls_expected ->
           let rec check_inheritance_type class_name =
             if class_name <> cls_expected then
-              begin
-                match List.find_opt (fun cl -> cl.class_name = class_name) p.classes with
-                | Some cl ->
-                    begin
-                      match cl.parent with
-                      | Some s_pt -> check_inheritance_type s_pt
-                      | None -> type_error typ_e typ_expected
-                    end
-                | None -> error ("unbound value error: '" ^ class_name ^ "' class is not declared in the program.")
-              end 
+              let cl = Interpreter.get_class p.classes class_name in
+                match cl.parent with
+                | Some s_pt -> check_inheritance_type s_pt
+                | None -> type_error typ_e typ_expected
           in
           check_inheritance_type cls_n
         | _ -> type_error typ_e typ_expected
-      end *)
+      end
 
   and type_expr e tenv = 
     match e with
