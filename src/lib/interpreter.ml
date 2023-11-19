@@ -358,7 +358,7 @@ let exec_prog p =
                 | _ -> Hashtbl.replace hash_tab var_name new_value
               end
             in
-            (* You may ask, why ? Because of OCamL type inference and the alias mem_access*)
+            (* You may ask, why? Because of OCamL type inference and the alias mem_access*)
             VNull
           in
           let op_then_set op =
