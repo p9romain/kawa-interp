@@ -24,7 +24,6 @@
     let var_hash = Hashtbl.create 5 in
     let () = List.iter (fun (x, t) -> Hashtbl.replace var_hash x t) var in
     var_hash, set
-
 %}
 
 %token <int> N
@@ -145,7 +144,13 @@ class_def:
     let attr_hash = Hashtbl.create 5 in
     let () = List.iter (fun (x, t) -> Hashtbl.replace attr_hash x t) (fst cls) in
     let meth_hash = Hashtbl.create 5 in
-    let () = List.iter (fun m -> Hashtbl.replace meth_hash m.method_name m) (snd cls) in
+    (* Overloading don't allow same method name with same parameters types *)
+    let check_if_double m =
+      match Hashtbl.find_opt meth_hash m.method_name with
+      | None -> Hashtbl.replace meth_hash m.method_name m
+      | Some _ -> raise (Interpreter.Error ("overloading error: there is at least twice the same method '" ^ m.method_name ^ "'' with the same parameters' type in the class '" ^ i ^ "'."))
+    in
+    let () = List.iter check_if_double (snd cls) in
     { class_name = i ; attributes = attr_hash ; methods = meth_hash ; parent = pt }  
   } 
 ;
@@ -157,7 +162,7 @@ class_def_attributes:
   { [], meths }
 ;
 class_def_constructor:
-| c=constructor_def meths=class_def_methods
+| c=constructor_def meths=class_def_constructor
   { c :: meths }
 | meths=class_def_methods
   { meths }
@@ -199,7 +204,8 @@ constructor_def:
   {
     let var, body = vars in
     let vars, set = init_and_setting_vars var in
-    { method_name = i ; code = set @ body ; params = arg ; locals = vars ; return = TVoid } 
+    let m_name = Interpreter.method_name_type i (List.map snd arg) in
+    { method_name = m_name ; code = set @ body ; params = arg ; locals = vars ; return = TVoid } 
   }
 ;
 /* To get rid of 'var' keyword */
@@ -213,7 +219,8 @@ method_def:
   { 
     let var, body = vars in
     let vars, set = init_and_setting_vars var in
-    { method_name = i ; code = set @ body ; params = arg ; locals = vars ; return = t } 
+    let m_name = Interpreter.method_name_type i (List.map snd arg) in
+    { method_name = m_name ; code = set @ body ; params = arg ; locals = vars ; return = t } 
   }
 ;
 /* To get rid of 'var' keyword */

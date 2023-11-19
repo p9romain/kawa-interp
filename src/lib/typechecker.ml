@@ -180,7 +180,7 @@ let typecheck_prog p =
         match type_expr e tenv with
         | TClass c ->
           let cl = Interpreter.get_class p.classes c in
-          match Hashtbl.find_opt cl.methods s with
+          match Hashtbl.find_opt cl.methods (Interpreter.method_name_type s (List.map (fun e -> type_expr e tenv) el)) with
           | Some m -> 
             (* Check if every expr in [el] is well-typed *)
             List.iter2 (fun e (_, t) -> check e t tenv) el m.params ;

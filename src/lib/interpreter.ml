@@ -32,6 +32,35 @@ and string_of_value v =
   | VObj o' -> string_of_obj o'
   | VNull -> "null"
 
+let typ_of_value v =
+  match v with
+  | VInt _ -> TInt
+  | VFloat _ -> TFloat
+  | VBool _ -> TBool
+  | VString _ -> TString
+  | VObj o -> TClass (o.cls)
+  | VNull -> TVoid
+
+(* To manage overloading : method names are "Name@@[types]" *)
+let method_name_type m_name typ_list = 
+  m_name  ^ "@@[" 
+          ^ (List.fold_left 
+              (fun acc t -> acc
+                          ^ (if acc = "" then "" else "; ") 
+                          ^ (Printf.sprintf "%s" (typ_to_string t))  
+              )  
+            "" typ_list) 
+          ^ "]"
+let method_name_expr eval m_name expr_list =
+  m_name  ^ "@@[" 
+          ^ (List.fold_left 
+              (fun acc e -> acc
+                          ^ (if acc = "" then "" else "; ") 
+                          ^ (Printf.sprintf "%s" (typ_to_string @@ typ_of_value @@ eval e))  
+              ) 
+            "" expr_list) 
+          ^ "]"
+
 (* To get classes of name [c_name]*)
 let get_class cls_hash c_name =
   (* Check if the class exists *)
@@ -39,11 +68,11 @@ let get_class cls_hash c_name =
   | Some cl -> cl
   | None -> raise (Error ("unbound value error: '" ^ c_name ^ "' class is not declared in the program."))
 
-(* Get the value of [m] in the local_env then in the global_env
+(* Get the value of [m] in the [local_env] and then in the [global_env]
 
-  We also give eval because it is out of its definition
-  We also give f to use mem_access in different usage (get the value vs assignment
-      which is a quite similar code !)
+  We also give [eval] because it is out of its definition
+  We also give a function [f] to use mem_access in different usage (get the value vs 
+      assignment which is a quite similar code !)
  *)
 let mem_access global_env local_env m eval f =
   match m with
@@ -98,7 +127,7 @@ let exec_prog p =
 
   (* Execute a seq [s] with the local environment [local_env] *)
   and exec_seq s local_env =
-   (* alias *)
+    (* alias *)
     let mem_access = mem_access global_env local_env in
     (* Evaluate an expression [e] with the unary operator [op] *)
     let rec eval_unop op e =
@@ -253,17 +282,7 @@ let exec_prog p =
         end
       | InstanceOf (e, t) ->
         begin
-          let typ_e = 
-            begin
-              match eval e with
-              | VInt _ -> TInt
-              | VFloat _ -> TFloat
-              | VBool _ -> TBool
-              | VString _ -> TString
-              | VObj o -> TClass (o.cls)
-              | VNull -> TVoid
-            end
-          in
+          let typ_e = typ_of_value (eval e) in
           match typ_e, t with
           | TInt, TInt
           | TFloat, TFloat
@@ -302,12 +321,12 @@ let exec_prog p =
         (* Create a new object *)
         let VObj(o) = eval (New s) in
         (* Call the constructor called by the same name as the class, so [s]*)
-        let _ = eval_call o s el in
+        let _ = eval_call o (method_name_expr eval s el) el in
         VObj o
       | MethCall (e, s, el) ->
         begin
           match eval e with
-          | VObj o -> eval_call o s el
+          | VObj o -> eval_call o (method_name_expr eval s el) el
           | _ -> failwith "Impossible : typechecker's work"
         end
     
@@ -322,6 +341,7 @@ let exec_prog p =
           | VBool b ->
             if not b then
               raise (Error "AssertionError")
+              
           | _ -> failwith "Impossible : typechecker's work"
         end
       | Set (m, s, e) ->
