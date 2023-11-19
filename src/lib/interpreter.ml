@@ -122,8 +122,11 @@ let exec_prog p =
       exec_seq f.code args ;
       VNull
     (* Get the result if there is a return *)
-    with Return e ->
-      e
+    with Return v ->
+      match v, f.return with
+      | VInt n, TFloat -> VFloat (float n)
+      | VFloat f, TInt -> VInt (int_of_float f)
+      | _ -> v
 
   (* Execute a seq [s] with the local environment [local_env] *)
   and exec_seq s local_env =
@@ -341,7 +344,7 @@ let exec_prog p =
           | VBool b ->
             if not b then
               raise (Error "AssertionError")
-              
+
           | _ -> failwith "Impossible : typechecker's work"
         end
       | Set (m, s, e) ->
