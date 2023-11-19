@@ -21,8 +21,7 @@ let typecheck_prog p =
       begin
         match typ_e, typ_expected with
         (* Type casting allowed for int and float *)
-        | TInt, TFloat
-        | TFloat, TInt -> ()
+        | TInt, TFloat -> ()
          (* For inheritance : A extends B => B is also of type A *)
         | TClass cls_n, TClass cls_expected ->
           let rec check_inheritance_type class_name =

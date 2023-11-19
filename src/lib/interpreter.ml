@@ -125,7 +125,6 @@ let exec_prog p =
     with Return v ->
       match v, f.return with
       | VInt n, TFloat -> VFloat (float n)
-      | VFloat f, TInt -> VInt (int_of_float f)
       | _ -> v
 
   (* Execute a seq [s] with the local environment [local_env] *)
@@ -239,7 +238,6 @@ let exec_prog p =
         (* For readability *)
         let assignment t e var_name =
           match t, eval e with
-          | TInt, VFloat f -> Hashtbl.replace args var_name (VInt (int_of_float f))
           | TFloat, VInt n -> Hashtbl.replace args var_name (VFloat (float n))
           | _ -> Hashtbl.replace args var_name (eval e)
         in
@@ -355,7 +353,6 @@ let exec_prog p =
               begin
                 match old_value, new_value with
                 (* type conversion, then assignment *)
-                | VInt _, VFloat f -> Hashtbl.replace hash_tab var_name (VInt (int_of_float f))
                 | VFloat _, VInt n -> Hashtbl.replace hash_tab var_name (VFloat (float n))
                 (* direct assignment *)
                 | _ -> Hashtbl.replace hash_tab var_name new_value
