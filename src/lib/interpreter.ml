@@ -3,6 +3,7 @@ open Kawa
 type value =
   | VInt  of int
   | VFloat of float
+  | VString of string
   | VBool of bool
   | VObj  of obj
   | VNull
@@ -14,22 +15,22 @@ and obj = {
 exception Error of string
 exception Return of value
 
-(* For printing an object *)
+(* For printing an object and any value *)
 let rec string_of_obj o =
   Printf.sprintf "Object<%s>(%s)" o.cls (Hashtbl.fold 
     (fun k v acc -> 
-      acc ^ (if acc = "" then "" else "; ") ^ (Printf.sprintf "%s = %s" k 
-        (
-          match v with
-          | VInt n -> string_of_int n
-          | VFloat f -> Printf.sprintf "%F" f
-          | VBool b -> if b then "true" else "false"
-          | VObj o' -> string_of_obj o'
-          | VNull -> "null"
-        )
-      ) 
+      acc ^ (if acc = "" then "" else "; ") 
+          ^ (Printf.sprintf "%s = %s" k (string_of_value v)) 
     ) 
   o.fields "")
+and string_of_value v =
+  match v with
+  | VInt n -> string_of_int n
+  | VFloat f -> Printf.sprintf "%F" f
+  | VString s -> s
+  | VBool b -> if b then "true" else "false"
+  | VObj o' -> string_of_obj o'
+  | VNull -> "null"
 
 (* To get classes of name [c_name]*)
 let get_class cls_hash c_name =
@@ -146,7 +147,16 @@ let exec_prog p =
         | _ -> failwith "Impossible : typechecker's work"
       in
       match op with
-      | Add -> num_to_num (+) (+.)
+      | Add ->
+        begin
+          match eval e1, eval e2 with
+          | VInt n1, VInt n2 -> VInt (n1 + n2)
+          | VFloat f, VInt n -> VFloat (f +. (float n))
+          | VInt n, VFloat f -> VFloat ((float n) +. f)
+          | VFloat f1, VFloat f2 -> VFloat (f1 +. f2)
+          | VString s1, VString s2 -> VString(s1 ^ s2)
+          | _ -> failwith "Impossible : typechecker's work"
+        end
       | Sub -> num_to_num (-) (-.)
       | Mul -> num_to_num ( * ) ( *. )
       | Div -> num_to_num (/) (/.)
@@ -168,6 +178,8 @@ let exec_prog p =
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 == o2 && o1 = o2)
           | VNull, VNull -> VBool(true)
+          | VString s, v -> VBool(s = string_of_value v)
+          | v, VString s -> VBool(string_of_value v = s)
           (* For integers and floats *)
           | _ -> compare (=) (=)
         end
@@ -179,6 +191,8 @@ let exec_prog p =
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 != o2 && o1 <> o2)
           | VNull, VNull -> VBool(false)
+          | VString s, v -> VBool(s <> string_of_value v)
+          | v, VString s -> VBool(string_of_value v <> s)
           (* For integers and floats *)
           | _ -> compare (<>) (<>)
         end
@@ -222,6 +236,7 @@ let exec_prog p =
       match e with
       | Int n -> VInt n
       | Float f -> VFloat f
+      | String s -> VString s
       | Bool b -> VBool b
       | Null -> VNull
       | Unop (op, e) -> eval_unop op e
@@ -244,6 +259,7 @@ let exec_prog p =
               | VInt _ -> TInt
               | VFloat _ -> TFloat
               | VBool _ -> TBool
+              | VString _ -> TString
               | VObj o -> TClass (o.cls)
               | VNull -> TVoid
             end
@@ -251,6 +267,7 @@ let exec_prog p =
           match typ_e, t with
           | TInt, TInt
           | TFloat, TFloat
+          | TString, TString
           | TBool, TBool -> VBool true
           | TClass c1, TClass c2 ->
             (* Check if the class exists *)
@@ -298,15 +315,7 @@ let exec_prog p =
     (* Execute an instruction [i] *)
     let rec exec i = 
       match i with
-      | Print e -> 
-        begin
-          match eval e with
-          | VInt n -> Printf.printf "%d\n" n
-          | VFloat f -> Printf.printf "%F\n" f 
-          | VBool b -> Printf.printf "%s\n" (if b then "true" else "false")
-          | VObj o -> Printf.printf "%s\n" (string_of_obj o) 
-          | VNull -> Printf.printf "null\n"
-        end
+      | Print e -> Printf.printf "%s\n" (string_of_value (eval e))
       | Assert e ->
         begin
           match eval e with
@@ -337,6 +346,7 @@ let exec_prog p =
               match v with
               | VInt n -> Int n
               | VFloat f -> Float f
+              | VString s -> String s
               (* We are talking about arithmetic so... *)
               | _ -> failwith "Impossible : typechecker's work."
             in

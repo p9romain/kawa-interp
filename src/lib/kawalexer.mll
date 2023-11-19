@@ -16,6 +16,7 @@
 
       "int",        INT ;
       "float",      FLOAT ;
+      "string",     STRING ;
       "bool",       BOOL ;
       "void",       VOID ;
 
@@ -54,7 +55,7 @@ let integers = ( ['1'-'9'] digit+ ) | digit
 let exponent = ['e' 'E'] '-'? integers
 let floats = decimals | ( integers '.' ) | ( integers decimals ) | ( integers decimals? exponent )
 
-let string = '"' [^ '"']* '"'
+let str = ([^ '\"'] | ([^ '\"'] '\\' '\"' [^ '\"']) )*
 
 (* Like Java *)
 let ident = (['a'-'z' 'A'-'Z'] | '_' ['a'-'z' 'A'-'Z']) (['a'-'z' 'A'-'Z'] | '_' | digit)*
@@ -68,6 +69,7 @@ rule token = parse
 
   | integers as n { N(int_of_string n) }
   | floats as f { F(Float.of_string f) }
+  | '\"' (str as s) '\"' { S(s) }
   | ident as id { keyword_or_ident id }
 
   | "("   { LPAR }

@@ -29,10 +29,11 @@
 
 %token <int> N
 %token <float> F
+%token <string> S
 %token TRUE FALSE
 %token NULL
 
-%token INT FLOAT BOOL VOID
+%token INT FLOAT STRING BOOL VOID
 %token <string> IDENT
 
 %token LPAR RPAR BEGIN END SEMI
@@ -186,6 +187,7 @@ attr_decl:
 typ:
 | INT { TInt }
 | FLOAT { TFloat }
+| STRING { TString }
 | BOOL { TBool }
 | i=IDENT { TClass i }
 | VOID { TVoid }
@@ -226,6 +228,7 @@ method_variables:
 expr:
 | n=N { Int(n) }
 | f=F { Float(f) }
+| s=S { String(s) }
 
 | TRUE { Bool(true) }
 | FALSE { Bool(false) }

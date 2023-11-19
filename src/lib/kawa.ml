@@ -6,6 +6,7 @@ type typ =
   | TVoid
   | TInt
   | TFloat
+  | TString
   | TBool
   | TClass of string
 
@@ -13,6 +14,7 @@ let typ_to_string = function
   | TVoid -> "void"
   | TInt -> "int"
   | TFloat -> "float"
+  | TString -> "string"
   | TBool -> "bool"
   | TClass s -> s
 
@@ -28,6 +30,7 @@ type expr =
   (* Arithmetic *)
   | Int        of int
   | Float      of float
+  | String     of string
   | Bool       of bool
   | Null
   | Unop       of unop * expr

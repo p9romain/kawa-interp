@@ -39,21 +39,42 @@ let typecheck_prog p =
   and type_expr e tenv = 
     match e with
     | Int _ -> TInt      
+    | Float _ -> TFloat
+    | String _ -> TString
     | Bool _ -> TBool
-    | Float _ -> TFloat  
     | Null -> TVoid
     | Unop (op, e) ->
       begin
-        (* Check if [e] is well-typed *)
-        type_expr e tenv ;
         match op with
-        | Opp -> TInt
-        | Not -> TBool
+        | Opp ->
+          begin
+            match type_expr e tenv with
+            | TInt -> TInt
+            | TFloat -> TFloat
+            | _ -> error "type error : the operator can be used on integers or floats"
+          end
+        | Not -> 
+          begin
+            match type_expr e tenv with
+            | TBool -> TBool
+            | _ -> error "type error : the operator can be used on booleans"
+          end
       end
     | Binop (op, e1, e2) ->
       begin
         match op with
-        | Add
+        | Add ->
+           begin
+            let t1 = type_expr e1 tenv in 
+            let t2 = type_expr e2 tenv in
+            match t1, t2 with
+            | TInt, TInt -> TInt
+            | TInt, TFloat
+            | TFloat, TInt
+            | TFloat, TFloat -> TFloat
+            | TString, TString -> TString
+            | _ -> error "type error : the operator can be used on integers, floats or strings"
+          end
         | Sub 
         | Mul 
         | Div ->
@@ -95,6 +116,7 @@ let typecheck_prog p =
             | TInt, TFloat
             | TFloat, TInt
             | TFloat, TFloat
+            | TString, TString
             | TBool, TBool -> TBool
 
             (* Can't check type if there is a null : this is let for the interpreter *)
@@ -109,6 +131,7 @@ let typecheck_prog p =
 
             | TInt, _
             | TFloat, _
+            | TString, _
             | TBool, _
             | TClass _, _-> type_error t1 t2
           end
@@ -132,7 +155,7 @@ let typecheck_prog p =
           TVoid
     | InstanceOf (e, t) ->
       (* Check if [e] is well-typed *)
-      type_expr e tenv ;
+      let _ = type_expr e tenv in
       TBool
     | Get m -> type_mem_access m tenv
     | This ->
@@ -191,6 +214,7 @@ let typecheck_prog p =
           match Hashtbl.find_opt cl.attributes attr with
           | Some t -> t
           | None -> TVoid
+        | _ -> error "type error: can't access to a field of a non-class expression"
       end
   (* change here from "in let rec" to "and" because I need it in type_expr (MethCall) *)
   and check_instr i ret tenv = 
