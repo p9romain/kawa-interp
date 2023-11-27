@@ -265,7 +265,21 @@ let exec_prog p =
     and eval e =
       match e with
       | Int n -> VInt n
+      | IntCast e ->
+        begin
+          match eval e with
+          | VInt n -> VInt n
+          | VFloat f -> VInt (int_of_float f)
+          | _ -> failwith "Impossible : typechecker's work"
+        end
       | Float f -> VFloat f
+      | FloatCast e ->
+        begin
+          match eval e with
+          | VInt n -> VFloat (float n)
+          | VFloat f -> VFloat f
+          | _ -> failwith "Impossible : typechecker's work"
+        end
       | String s -> VString s
       | Bool b -> VBool b
       | Null -> VNull

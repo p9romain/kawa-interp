@@ -234,7 +234,9 @@ method_variables:
 
 expr:
 | n=N { Int(n) }
+| INT LPAR e=expr RPAR { IntCast(e) }
 | f=F { Float(f) }
+| FLOAT LPAR e=expr RPAR { FloatCast(e) }
 | s=S { String(s) }
 
 | TRUE { Bool(true) }

@@ -37,8 +37,22 @@ let typecheck_prog p =
 
   and type_expr e tenv = 
     match e with
-    | Int _ -> TInt      
-    | Float _ -> TFloat
+    | Int _ -> TInt   
+    | IntCast e ->
+      begin
+        match type_expr e tenv with
+        | TInt   
+        | TFloat -> TInt
+        | _ -> error "type error : the int casting can only be used on integers or floats"
+      end   
+    | Float _ -> TFloat   
+    | FloatCast e ->
+      begin
+        match type_expr e tenv with
+        | TInt   
+        | TFloat -> TFloat
+        | _ -> error "type error : the int casting can only be used on integers or floats"
+      end
     | String _ -> TString
     | Bool _ -> TBool
     | Null -> TVoid
@@ -72,7 +86,7 @@ let typecheck_prog p =
             | TFloat, TInt
             | TFloat, TFloat -> TFloat
             | TString, TString -> TString
-            | _ -> error "type error : the operator can be used on integers, floats or strings"
+            | _ -> error "type error : the + operator can only be used on integers or floats, or between two strings"
           end
         | Sub 
         | Mul 
@@ -85,7 +99,15 @@ let typecheck_prog p =
             | TInt, TFloat
             | TFloat, TInt
             | TFloat, TFloat -> TFloat
-            | _ -> error "type error : the operator can be used on integers or floats"
+            | _ -> 
+              let op_to_string op =
+                match op with
+                | Sub -> "-"
+                | Mul -> "*"
+                | Div -> "/"
+                | _ -> ""
+              in
+              error ("type error : the " ^ (op_to_string op) ^ " operator can only be used on integers or floats")
           end
         | Mod ->
           check e1 TInt tenv ;
@@ -103,7 +125,7 @@ let typecheck_prog p =
             | TInt, TFloat
             | TFloat, TInt
             | TFloat, TFloat -> TBool
-            | _ -> error "type error : the operator can be used on integers or floats"
+            | _ -> error "type error : the comparison operator can only be used on integers or floats"
           end
         | Eq  
         | Neq ->

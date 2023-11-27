@@ -29,7 +29,9 @@ type setop = S_Set | S_Sub | S_Add | S_Mul | S_Div
 type expr =
   (* Arithmetic *)
   | Int        of int
+  | IntCast    of expr
   | Float      of float
+  | FloatCast  of expr
   | String     of string
   | Bool       of bool
   | Null
