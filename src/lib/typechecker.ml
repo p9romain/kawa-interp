@@ -181,17 +181,7 @@ let typecheck_prog p =
           let cl = Interpreter.get_class p.classes c in
           match Hashtbl.find_opt cl.methods (Interpreter.method_name_type s (List.map (fun e -> type_expr e tenv) el)) with
           | Some m -> 
-            (* Check if every expr in [el] is well-typed *)
-            List.iter2 (fun e (_, t) -> check e t tenv) el m.params ;
-            (* Create local environment with (in this order) :
-               global + this + params (we already checked type) + local var of the method *)
-            let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) p.globals Env.empty in
-            let tenv = Env.add "@This" (TClass c) tenv in
-            let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) m.locals tenv in
-            let tenv = List.fold_left (fun acc (x, t) -> Env.add x t acc) tenv m.params 
-            in
-            (* check if method is well-typed *)
-            check_seq m.code m.return tenv ;
+            check_meth cl (Some el) m ;
             m.return
           | None -> TVoid
         | _ -> error "type error: can't access to a method of a non-class expression"
@@ -261,6 +251,41 @@ let typecheck_prog p =
       check_seq s ret tenv ;
   and check_seq s ret tenv =
     List.iter (fun i -> check_instr i ret tenv) s
+  and check_meth c params m =
+    let check_meth_code =
+      (* Create local environment with (in this order) :
+       global + this + params (we already checked type) + local var of the method *)
+      let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) p.globals Env.empty in
+      let tenv = Env.add "@This" (TClass c.class_name) tenv in
+      let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) m.locals tenv in
+      let tenv = List.fold_left (fun acc (x, t) -> Env.add x t acc) tenv m.params 
+      in
+      (* Check if method is well-typed *)
+      check_seq m.code m.return tenv
+    in
+    let () =
+      begin
+        match params with
+        | Some el ->
+          (* Check if every expr in [el] is well-typed *)
+          List.iter2 (fun e (_, t) -> check e t tenv) el m.params ;
+        | None -> ()
+      end
+    in
+    check_meth_code
+  and check_mdef c m =
+    check_meth c None m
+  and check_class c =
+    Hashtbl.iter (fun _ -> check_mdef c) c.methods ;
+    match c.parent with
+    | None -> ()
+    | Some c_pt ->
+      begin
+        match Hashtbl.find_opt p.classes c_pt with
+        | Some c -> () (* parent exists so it's okay *)
+        | None -> 
+          error ("unbound value error: class '" ^ c.class_name ^ "' inherits from an inexistent class named '" ^ c_pt ^ "'.")
+      end
   in
-
-  check_seq p.main TVoid tenv
+  check_seq p.main TVoid tenv ; (* Check main *)
+  Hashtbl.iter (fun _ -> check_class) p.classes ; (* Check classes definitions *)
