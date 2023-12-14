@@ -16,14 +16,14 @@ exception Error of string
 exception Return of value
 
 (* For printing an object and any value *)
-let rec string_of_obj o =
+let rec string_of_obj (o : obj) : string =
   Printf.sprintf "Object<%s>(%s)" o.cls (Hashtbl.fold 
     (fun k v acc -> 
       acc ^ (if acc = "" then "" else "; ") 
           ^ (Printf.sprintf "%s = %s" k (string_of_value v)) 
     ) 
   o.fields "")
-and string_of_value v =
+and string_of_value (v : value) : string =
   match v with
   | VInt n -> string_of_int n
   | VFloat f -> Printf.sprintf "%F" f
@@ -32,7 +32,7 @@ and string_of_value v =
   | VObj o' -> string_of_obj o'
   | VNull -> "null"
 
-let typ_of_value v =
+let typ_of_value (v : value) : typ =
   match v with
   | VInt _ -> TInt
   | VFloat _ -> TFloat
@@ -42,7 +42,8 @@ let typ_of_value v =
   | VNull -> TVoid
 
 (* To manage overloading : method names are "Name@@[types]" *)
-let method_name_type m_name typ_list = 
+let method_name_type (m_name : string) 
+                     (typ_list : typ list) : string = 
   m_name  ^ "@@[" 
           ^ (List.fold_left 
               (fun acc t -> acc
@@ -51,18 +52,22 @@ let method_name_type m_name typ_list =
               )  
             "" typ_list) 
           ^ "]"
-let method_name_expr eval m_name expr_list =
+(* To manage overloading : method names are "Name@@[types]" from a given parameter list *)
+let method_name_expr (eval_expr : expr -> value)
+                     (m_name : string) 
+                     (expr_list : expr list) : string =
   m_name  ^ "@@[" 
           ^ (List.fold_left 
               (fun acc e -> acc
                           ^ (if acc = "" then "" else "; ") 
-                          ^ (Printf.sprintf "%s" (typ_to_string @@ typ_of_value @@ eval e))  
+                          ^ (Printf.sprintf "%s" (typ_to_string @@ typ_of_value @@ eval_expr e))  
               ) 
             "" expr_list) 
           ^ "]"
 
 (* To get classes of name [c_name]*)
-let get_class cls_hash c_name =
+let get_class (cls_hash : (string, class_def) Hashtbl.t) 
+              (c_name : string) : class_def =
   (* Check if the class exists *)
   match Hashtbl.find_opt cls_hash c_name with
   | Some cl -> cl
@@ -70,11 +75,15 @@ let get_class cls_hash c_name =
 
 (* Get the value of [m] in the [local_env] and then in the [global_env]
 
-  We also give [eval] because it is out of its definition
+  We also give [eval_expr] because it is out of its definition
   We also give a function [f] to use mem_access in different usage (get the value vs 
       assignment which is a quite similar code !)
  *)
-let mem_access global_env local_env m eval f =
+let mem_access (global_env : (string, value) Hashtbl.t) 
+               (local_env : (string, value) Hashtbl.t) 
+               (m : mem_access) 
+               (eval_expr : expr -> value) 
+               (f : string -> (string, value) Hashtbl.t -> value -> value) : value  =
   match m with
   | Var s ->
     begin 
@@ -92,7 +101,7 @@ let mem_access global_env local_env m eval f =
   | Field (e, s) ->
     begin
       (* Check if it's an object *)
-      match eval e with
+      match eval_expr e with
       | VObj o -> 
         begin
           (* Check if the field exists *)
@@ -105,72 +114,65 @@ let mem_access global_env local_env m eval f =
     end
 
 (* Execute the main of [p] *)
-let exec_prog p =
+let exec_prog (p : program) : unit =
   let global_env = Hashtbl.create 16 in
   (* alias *)
   let get_class = get_class p.classes in 
   Hashtbl.iter (fun x _ -> Hashtbl.replace global_env x VNull) p.globals;
 
-  (* Execute the method [f args] in the object [this] *)
-  let rec exec_meth f this args =
-    (* Use an @ because i'm the only one who is allowed to do it (privelege) *)
-    Hashtbl.replace args "@This" (VObj this) ;
-    (* Add local variables *)
-    Hashtbl.iter (fun x _ -> Hashtbl.replace args x VNull) f.locals ;
-    (* Execute method *)
-    try
-      exec_seq f.code args ;
-      VNull
-    (* Get the result if there is a return *)
-    with Return v ->
-      match v, f.return with
-      | VInt n, TFloat -> VFloat (float n)
-      | _ -> v
-
   (* Execute a seq [s] with the local environment [local_env] *)
-  and exec_seq s local_env =
+  let rec exec_seq (s : seq) 
+                   (local_env : (string, value) Hashtbl.t) : unit =
     (* alias *)
     let mem_access = mem_access global_env local_env in
+
     (* Evaluate an expression [e] with the unary operator [op] *)
-    let rec eval_unop op e =
+    let rec eval_unop (op : unop) 
+                      (e : expr) : value =
       match op with
       | Opp ->
         begin
-          match eval e with
+          match eval_expr e with
           | VInt n -> VInt (-n)
           | VFloat f -> VFloat (-.f)
           | _ -> failwith "Impossible : typechecker's work"
         end
       | Not ->
         begin
-          match eval e with
+          match eval_expr e with
           | VBool b -> VBool (not b)
           | _ -> failwith "Impossible : typechecker's work"
         end
 
     (* Evaluate two expressions [e1] and [e2] with the binary operator [op] *)
-    and eval_binop op e1 e2 =
-      let bool_to_bool op =
-        match eval e1, eval e2 with
+    and eval_binop (op : binop) 
+                   (e1 : expr)
+                   (e2 : expr) : value =
+      let bool_to_bool (op : bool -> bool -> bool) : value =
+        match eval_expr e1, eval_expr e2 with
         | VBool b1, VBool b2 -> VBool (op b1 b2)
         | _ -> failwith "Impossible : typechecker's work"
       in
+
       (* Manage the int and float conversion *)
-      let num_to_num op_int op_float =
-        match eval e1, eval e2 with
+      let num_to_num (op_int : int -> int -> int) 
+                     (op_float : float -> float -> float) : value =
+        match eval_expr e1, eval_expr e2 with
         | VInt n1, VInt n2 -> VInt (op_int n1 n2)
         | VFloat f, VInt n -> VFloat (op_float f (float n))
         | VInt n, VFloat f -> VFloat (op_float (float n) f)
         | VFloat f1, VFloat f2 -> VFloat (op_float f1 f2)
         | _ -> failwith "Impossible : typechecker's work"
       in
+
       (* Manage the int and float conversion 
 
-        Because of type inference there is two operator even 
-          it's the same one for both..... 
+        Because of type inference in OCamL there is two operator even 
+          it's the same one for both
       *)
-      let compare op_int op_float =
-        match eval e1, eval e2 with
+      let compare (op_int : int -> int -> bool) 
+                  (op_float : float -> float -> bool) : value =
+        match eval_expr e1, eval_expr e2 with
         | VInt n1, VInt n2 -> VBool (op_int n1 n2)
         | VFloat f, VInt n -> VBool (op_float f (float n))
         | VInt n, VFloat f -> VBool (op_float (float n) f)
@@ -180,7 +182,7 @@ let exec_prog p =
       match op with
       | Add ->
         begin
-          match eval e1, eval e2 with
+          match eval_expr e1, eval_expr e2 with
           | VInt n1, VInt n2 -> VInt (n1 + n2)
           | VFloat f, VInt n -> VFloat (f +. (float n))
           | VInt n, VFloat f -> VFloat ((float n) +. f)
@@ -193,7 +195,7 @@ let exec_prog p =
       | Div -> num_to_num (/) (/.)
       | Mod ->
         begin
-          match eval e1, eval e2 with
+          match eval_expr e1, eval_expr e2 with
           | VInt n1, VInt n2 -> VInt (n1 mod n2)
           | _ -> failwith "Impossible : typechecker's work"
         end
@@ -203,7 +205,7 @@ let exec_prog p =
       | Gt -> compare (>) (>)
       | Eq ->
         begin
-          match eval e1, eval e2 with
+          match eval_expr e1, eval_expr e2 with
           | VBool x, VBool y -> VBool (x = y)
           (* Two objects are equal if and only if they are physically the same object 
              And we have "(==) => (=)", so we have '&&' *)
@@ -216,7 +218,7 @@ let exec_prog p =
         end
       | Neq ->
         begin
-          match eval e1, eval e2 with
+          match eval_expr e1, eval_expr e2 with
           | VBool x, VBool y -> VBool (x <> y)
           (* Two objects are equal if and only if they are physically the same object 
              And we have "(==) => (=)", so we have '&&' *)
@@ -231,23 +233,27 @@ let exec_prog p =
       | Or ->  bool_to_bool (||)
 
     (* Evaluate the call of the [o]'s method [m_name arg]*)
-    and eval_call o m_name arg =
+    and eval_call (o : obj) 
+                  (m_name  : string) 
+                  (arg : expr list) : value =
       (* Call the method [m]*)
-      let method_call m =
+      let method_call (m : method_def) : value =
         let args = Hashtbl.create 5 in
         (* For readability *)
-        let assignment t e var_name =
-          match t, eval e with
+        let assignment (t : typ) 
+                       (e : expr) 
+                       (var_name : string) : unit =
+          match t, eval_expr e with
           | TFloat, VInt n -> Hashtbl.replace args var_name (VFloat (float n))
-          | _ -> Hashtbl.replace args var_name (eval e)
+          | _ -> Hashtbl.replace args var_name (eval_expr e)
         in
         (* Add all the parameters in the local environment *)
         List.iter2 (fun e (x, t) -> assignment t e x ) arg m.params ;
         (* Start the method call *)
-        exec_meth m o args
+        eval_meth m o args
       in
       let c = get_class o.cls in
-      let rec inheritance c =
+      let rec inheritance (c : class_def) : value =
         (* Check if the method exists *)
         match Hashtbl.find_opt c.methods m_name with
         | Some m -> method_call m
@@ -261,13 +267,31 @@ let exec_prog p =
       in
       inheritance c
 
+    (* Evaluate the method [f args] in the object [this] *)
+    and eval_meth (f : method_def) 
+                  (this : obj) 
+                  (args : (string, value) Hashtbl.t) : value =
+      (* Use an @ because i'm the only one who is allowed to do it (privelege) *)
+      Hashtbl.replace args "@This" (VObj this) ;
+      (* Add local variables *)
+      Hashtbl.iter (fun x _ -> Hashtbl.replace args x VNull) f.locals ;
+      (* Execute method *)
+      try
+        exec_seq f.code args ;
+        VNull
+      (* Get the result if there is a return *)
+      with Return v ->
+        match v, f.return with
+        | VInt n, TFloat -> VFloat (float n)
+        | _ -> v
+
     (* Evaluate an expression [e] *)
-    and eval e =
+    and eval_expr (e : expr) : value =
       match e with
       | Int n -> VInt n
       | IntCast e ->
         begin
-          match eval e with
+          match eval_expr e with
           | VInt n -> VInt n
           | VFloat f -> VInt (int_of_float f)
           | _ -> failwith "Impossible : typechecker's work"
@@ -275,7 +299,7 @@ let exec_prog p =
       | Float f -> VFloat f
       | FloatCast e ->
         begin
-          match eval e with
+          match eval_expr e with
           | VInt n -> VFloat (float n)
           | VFloat f -> VFloat f
           | _ -> failwith "Impossible : typechecker's work"
@@ -287,17 +311,17 @@ let exec_prog p =
       | Binop (op, e1, e2) -> eval_binop op e1 e2
       | TerCond (t, e1, e2) ->
         begin
-          match eval t with
+          match eval_expr t with
           | VBool b ->
             if b then
-              eval e1
+              eval_expr e1
             else
-              eval e2
+              eval_expr e2
           | _ -> failwith "Impossible : typechecker's work"
         end
       | InstanceOf (e, t) ->
         begin
-          let typ_e = typ_of_value (eval e) in
+          let typ_e = typ_of_value (eval_expr e) in
           match typ_e, t with
           | TInt, TInt
           | TFloat, TFloat
@@ -306,7 +330,7 @@ let exec_prog p =
           | TClass c1, TClass c2 ->
             (* Check if the class exists *)
             let _ = get_class c2 in
-            let rec check_inheritance_type c =
+            let rec check_inheritance_type (c : string) : value =
               if c <> c2 then
                 let cl = get_class c in
                   match cl.parent with
@@ -318,7 +342,7 @@ let exec_prog p =
             check_inheritance_type c1
           | _, _ -> VBool false
         end
-      | Get m -> mem_access m eval (fun _ _ x -> x)
+      | Get m -> mem_access m eval_expr (fun _ _ x -> x)
       | This ->
         begin 
           (* Check if the variable is in the local environment *)
@@ -334,25 +358,25 @@ let exec_prog p =
         VObj o
       | NewCstr (s, el) ->
         (* Create a new object *)
-        let VObj(o) = eval (New s) in
+        let VObj(o) = eval_expr (New s) in
         (* Call the constructor called by the same name as the class, so [s]*)
-        let _ = eval_call o (method_name_expr eval s el) el in
+        let _ = eval_call o (method_name_expr eval_expr s el) el in
         VObj o
       | MethCall (e, s, el) ->
         begin
-          match eval e with
-          | VObj o -> eval_call o (method_name_expr eval s el) el
+          match eval_expr e with
+          | VObj o -> eval_call o (method_name_expr eval_expr s el) el
           | _ -> failwith "Impossible : typechecker's work"
         end
     
     in
     (* Execute an instruction [i] *)
-    let rec exec i = 
+    let rec exec (i : instr) : unit = 
       match i with
-      | Print e -> Printf.printf "%s\n" (string_of_value (eval e))
+      | Print e -> Printf.printf "%s\n" (string_of_value (eval_expr e))
       | Assert e ->
         begin
-          match eval e with
+          match eval_expr e with
           | VBool b ->
             if not b then
               raise (Error "AssertionError")
@@ -362,7 +386,10 @@ let exec_prog p =
       | Set (m, s, e) ->
         begin
           (* For readability *)
-          let assignment new_value var_name hash_tab old_value =
+          let assignment (new_value : value) 
+                         (var_name : string) 
+                         (hash_tab : (string, value) Hashtbl.t) 
+                         (old_value : value) : value =
             let () = 
               begin
                 match old_value, new_value with
@@ -372,29 +399,29 @@ let exec_prog p =
                 | _ -> Hashtbl.replace hash_tab var_name new_value
               end
             in
-            (* You may ask, why? Because of OCamL type inference and the alias mem_access*)
+            (* You may ask : why? Because we need to give it a value for 'mem_access' so 'void' for instruction *)
             VNull
           in
-          let op_then_set op =
-            let value_to_expr v =
+          let op_then_set (op : binop) : unit =
+            let value_to_expr (v : value) : expr =
               match v with
               | VInt n -> Int n
               | VFloat f -> Float f
               | VString s -> String s
-              (* We are talking about arithmetic so... *)
+              (* We are talking about arithmetic so : error *)
               | _ -> failwith "Impossible : typechecker's work."
             in
             (* Get the variable *)
-            let var = eval (Get(m)) in
+            let var = eval_expr (Get(m)) in
             (* Evaluate before assigning *)
-            let var_bop = eval (Binop(op, (value_to_expr var), e)) in
+            let var_bop = eval_expr (Binop(op, (value_to_expr var), e)) in
             (* Assign *)
-            let _ = mem_access m eval (assignment var_bop) in
+            let _ = mem_access m eval_expr (assignment var_bop) in
             ()
           in
           match s with
           | S_Set -> 
-            let _ = mem_access m eval (assignment (eval e)) in
+            let _ = mem_access m eval_expr (assignment (eval_expr e)) in
             ()
           | S_Add -> op_then_set Add
           | S_Sub -> op_then_set Sub
@@ -403,7 +430,7 @@ let exec_prog p =
         end
       | While (e, s) ->
         begin
-          match eval e with
+          match eval_expr e with
           | VBool b ->
             if b then
               begin
@@ -418,15 +445,15 @@ let exec_prog p =
         exec_seq s local_env ; (* do *)
         exec w (* while *)
       | Cond c -> exec_cond c
-      | Return e -> raise (Return (eval e))
-      | Expr e -> let _ = eval e in ()
+      | Return e -> raise (Return (eval_expr e))
+      | Expr e -> let _ = eval_expr e in ()
 
-    (* Execute a condition instruction [c] *)
-    and exec_cond c =
+    (* Execute a conditional instruction [c] *)
+    and exec_cond (c : cond) : unit =
       match c with
       | If (e, s) ->
         begin
-          match eval e with
+          match eval_expr e with
           | VBool b ->
             if b then
               exec_seq s local_env
@@ -434,7 +461,7 @@ let exec_prog p =
         end
       | If_Else (e, s, c) ->
         begin
-          match eval e with
+          match eval_expr e with
           | VBool b ->
             if b then
               exec_seq s local_env

@@ -26,7 +26,7 @@ type binop = Add | Sub | Mul | Div | Mod
 type setop = S_Set | S_Sub | S_Add | S_Mul | S_Div
 
 (* Expressions *)
-type expr' =
+type expr =
   (* Arithmetic *)
   | Int        of int
   | IntCast    of expr

@@ -7,7 +7,6 @@ let type_error ty_actual ty_expected =
            (typ_to_string ty_expected) (typ_to_string ty_actual))
 
 module Env = Map.Make(String)
-type tenv = typ Env.t
 
 let typecheck_prog p =
   let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) p.globals Env.empty in
@@ -309,5 +308,5 @@ let typecheck_prog p =
           error ("unbound value error: class '" ^ c.class_name ^ "' inherits from an inexistent class named '" ^ c_pt ^ "'.")
       end
   in
-  check_seq p.main TVoid tenv ; (* Check main *)
   Hashtbl.iter (fun _ -> check_class) p.classes ; (* Check classes definitions *)
+  check_seq p.main TVoid tenv ; (* Check main *)

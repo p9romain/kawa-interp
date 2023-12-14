@@ -4,6 +4,7 @@ open Kawa_lib
 open Kawa
 
 let file = Sys.argv.(1)
+let file_name = List.hd @@ List.rev @@ String.split_on_char '/' file 
 
 let report (b,e) =
 let l = b.pos_lnum in
@@ -23,15 +24,15 @@ let () =
   with
     | Kawalexer.Error s ->
       report (lexeme_start_p lb, lexeme_end_p lb) ;
-      eprintf "lexical error: %s@." s ;
+      eprintf "in file '%s' :\nlexical error: %s@." file_name s ;
       exit 1
     | Kawaparser.Error ->
       report (lexeme_start_p lb, lexeme_end_p lb) ;
-      eprintf "syntax error@." ;
+      eprintf "in file '%s' :\nsyntax error@." file_name ;
       exit 1
     | Interpreter.Error s ->
-      eprintf "interpreter error: %s@." s ;
+      eprintf "in file '%s' :\ninterpreter error: %s@." file_name s ;
       exit 1
     | e ->
-      eprintf "Anomaly: %s\n@." (Printexc.to_string e) ;
+      eprintf "in file '%s' :\nAnomaly: %s@." file_name (Printexc.to_string e) ;
       exit 2

@@ -3,21 +3,18 @@
   open Lexing
   open Kawa
 
-  (* Manage the setting when initialiasing a variable
-
-    Var is a ((string * typ) * expr) list
-  *)
-  let init_and_setting_vars var =
-    let rec var_set l =
-    match l with
-    | [] -> []
-    | s :: l -> 
-      begin
-        (* get rid of non-initialisation, so Null : it will be set to null anyway by the program before starting *)
-        match s with
-        | Set _ -> s :: var_set l
-        | _ -> var_set l
-      end
+  (* Manage the setting when initialiasing a variable *)
+  let init_and_setting_vars (var : ((string * typ) list * instr) list) : (string, typ) Hashtbl.t * seq =
+    let rec var_set (l : seq) : seq =
+      match l with
+      | [] -> []
+      | s :: l -> 
+        begin
+          (* get rid of non-initialisation, so Null : it will be set to null anyway by the program before starting *)
+          match s with
+          | Set _ -> s :: var_set l
+          | _ -> var_set l
+        end
     in
     let set = var_set (List.map snd var) in
     let var = List.flatten (List.map fst var) in
@@ -95,7 +92,8 @@ program:
     let cls_hash = Hashtbl.create 5 in
     let () = List.iter (fun c -> Hashtbl.replace cls_hash c.class_name c) cls in
     (* Flatten all attributes with inheritance *)
-    let rec inheritance c_name c =
+    let rec inheritance (c_name : string) 
+                        (c : class_def) : unit =
       (* Find the parent *)
       match c.parent with
       | Some p ->
@@ -103,8 +101,9 @@ program:
           (* Get the parent's class *)
           let p_cls = Interpreter.get_class cls_hash p in
           (* We keep the 'youngest' attribute so if it's already in it, we do not
-            want to erase it *)
-          let add_but_not_erase x t =
+            want to erase it (since we read from child to parent)*)
+          let add_but_not_erase (x : string) 
+                                (t : typ) : unit =
             match Hashtbl.find_opt c.attributes x with
             | None -> Hashtbl.replace c.attributes x t
             | Some _ -> ()
@@ -145,7 +144,7 @@ class_def:
     let () = List.iter (fun (x, t) -> Hashtbl.replace attr_hash x t) (fst cls) in
     let meth_hash = Hashtbl.create 5 in
     (* Overloading don't allow same method name with same parameters types *)
-    let check_if_double m =
+    let check_if_double (m : method_def) : unit =
       match Hashtbl.find_opt meth_hash m.method_name with
       | None -> Hashtbl.replace meth_hash m.method_name m
       | Some _ -> raise (Interpreter.Error ("overloading error: there is at least twice the same method '" ^ m.method_name ^ "'' with the same parameters' type in the class '" ^ i ^ "'."))
