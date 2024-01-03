@@ -1,5 +1,5 @@
 
-** Conflict (reduce/reduce) in state 159.
+** Conflict (reduce/reduce) in state 153.
 ** Token involved: LBRA
 ** This state is reached from program after reading:
 
@@ -18,7 +18,7 @@ CLASS IDENT option(__anonymous_0) BEGIN class_def_attributes
                                         IDENT LPAR loption(separated_nonempty_list(COMMA,__anonymous_3)) RPAR BEGIN constructor_variables END 
                                                                                                                     (?)
 
-** In state 159, looking ahead at LBRA, reducing production
+** In state 153, looking ahead at LBRA, reducing production
 ** mem -> IDENT
 ** is permitted because of the following sub-derivation:
 
@@ -29,7 +29,7 @@ expr LBRA expr RBRA // lookahead token appears
 mem // lookahead token is inherited
 IDENT . 
 
-** In state 159, looking ahead at LBRA, reducing production
+** In state 153, looking ahead at LBRA, reducing production
 ** typ -> IDENT
 ** is permitted because of the following sub-derivation:
 

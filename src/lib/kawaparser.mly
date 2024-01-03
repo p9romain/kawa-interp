@@ -250,7 +250,7 @@ expr:
 
 | NULL { Null }
 
-| t=tab_def { t }
+/*| t=tab_def { t }*/
 | BEGIN arg=separated_list(COMMA, expr) END { Tab( Array.of_seq (List.to_seq arg) ) }
 
 | u=uop e=expr { Unop(u, e) }
@@ -285,11 +285,10 @@ tab_typ:
 | BOOL { TBool }
 | i=IDENT { TClass i }
 ;
-tab_def:
-| NEW t=tab_typ LBRA e=expr RBRA { TabCstr(t, e) }
-/*
-    TODO : Multi-D Tabs
+/*tab_def:
+  Java def of tabs + Multi-d
 
+| NEW t=tab_typ LBRA e=expr RBRA { TabCstr(t, e) }
 | t=tab_def LBRA e=expr RBRA 
   { 
     match t with
