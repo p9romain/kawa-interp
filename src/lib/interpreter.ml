@@ -211,6 +211,8 @@ let exec_prog (p : program) : unit =
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 == o2 && o1 = o2)
           | VNull, VNull -> VBool(true)
+          | VNull, _ 
+          | _, VNull -> VBool(false)
           | VString s, v -> VBool(s = string_of_value v)
           | v, VString s -> VBool(string_of_value v = s)
           (* For integers and floats *)
@@ -224,6 +226,8 @@ let exec_prog (p : program) : unit =
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 != o2 && o1 <> o2)
           | VNull, VNull -> VBool(false)
+          | VNull, _ 
+          | _, VNull -> VBool(true)
           | VString s, v -> VBool(s <> string_of_value v)
           | v, VString s -> VBool(string_of_value v <> s)
           (* For integers and floats *)

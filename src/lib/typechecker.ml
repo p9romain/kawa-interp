@@ -8,10 +8,12 @@ let type_error ty_actual ty_expected =
 
 module Env = Map.Make(String)
 
-let typecheck_prog p =
+let typecheck_prog (p : program) : unit =
   let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) p.globals Env.empty in
 
-  let rec check e typ_expected tenv =
+  let rec check (e : expr) 
+                (typ_expected : typ) 
+                (tenv : typ Env.t) : unit =
     let typ_e = type_expr e tenv in
     (* We allow x = null for anytime of x
        We check if they have different types
@@ -23,7 +25,7 @@ let typecheck_prog p =
         | TInt, TFloat -> ()
          (* For inheritance : A extends B => B is also of type A *)
         | TClass cls_n, TClass cls_expected ->
-          let rec check_inheritance_type class_name =
+          let rec check_inheritance_type (class_name : string) : unit =
             if class_name <> cls_expected then
               let cl = Interpreter.get_class p.classes class_name in
                 match cl.parent with
@@ -34,7 +36,8 @@ let typecheck_prog p =
         | _ -> type_error typ_e typ_expected
       end
 
-  and type_expr e tenv = 
+  and type_expr (e : expr) 
+                (tenv : typ Env.t) : typ = 
     match e with
     | Int _ -> TInt   
     | IntCast e ->
@@ -202,13 +205,16 @@ let typecheck_prog p =
           let cl = Interpreter.get_class p.classes c in
           match Hashtbl.find_opt cl.methods (Interpreter.method_name_type s (List.map (fun e -> type_expr e tenv) el)) with
           | Some m -> 
-            check_meth cl (Some el) m ;
+            (* Code already checked (function unused) : check_meth cl (Some el) m ; *)
+            (* Check if every expr in [el] is well-typed *)
+            List.iter2 (fun e (_, t) -> check e t tenv) el m.params ;
             m.return
-          | None -> TVoid
+          | None -> TVoid (* Interpreter role *)
         | _ -> error "type error: can't access to a method of a non-class expression"
       end
 
-  and type_mem_access m tenv = 
+  and type_mem_access (m : mem_access)
+                      (tenv : typ Env.t) : typ = 
     match m with
     | Var s -> 
       begin
@@ -227,7 +233,9 @@ let typecheck_prog p =
         | _ -> error "type error: can't access to a field of a non-class expression"
       end
   (* change here from "in let rec" to "and" because I need it in type_expr (MethCall) *)
-  and check_instr i ret tenv = 
+  and check_instr (i : instr) 
+                  (ret : typ)
+                  (tenv : typ Env.t) : unit = 
     match i with
     (* Print implemented for any type *)
     | Print e ->
@@ -251,28 +259,37 @@ let typecheck_prog p =
     | Cond c -> check_cond c ret tenv
     | While (e, s) ->
       check e TBool tenv ;
-      check_seq s ret tenv ;
+      check_seq s ret tenv
     | DoWhile (s, w) ->
       check_seq s ret tenv ;
-      check_instr w ret tenv ;
+      check_instr w ret tenv
     | Return e ->
-      check e ret tenv ;
+      check e ret tenv
     | Expr e ->
-      check e TVoid tenv ;
-  and check_cond c ret tenv =
+      check e TVoid tenv
+
+  and check_cond (c : cond) 
+                 (ret : typ)
+                 (tenv : typ Env.t) : unit =
     match c with
     | If (e, s) ->
       check e TBool tenv ;
-      check_seq s ret tenv ;
+      check_seq s ret tenv
     | If_Else (e, s, c) ->
       check e TBool tenv ;
       check_seq s ret tenv ;
-      check_cond c ret tenv ;
+      check_cond c ret tenv
     | Else s ->
-      check_seq s ret tenv ;
-  and check_seq s ret tenv =
+      check_seq s ret tenv
+
+  and check_seq (s : seq) 
+                (ret : typ)
+                (tenv : typ Env.t) : unit =
     List.iter (fun i -> check_instr i ret tenv) s
-  and check_meth c params m =
+
+(*   and check_meth (c : class_def) 
+                 (params : expr list) 
+                 (m : method_def) : unit =
     let check_meth_code =
       (* Create local environment with (in this order) :
        global + this + params (we already checked type) + local var of the method *)
@@ -289,14 +306,25 @@ let typecheck_prog p =
         match params with
         | Some el ->
           (* Check if every expr in [el] is well-typed *)
-          List.iter2 (fun e (_, t) -> check e t tenv) el m.params ;
+          List.iter2 (fun e (_, t) -> check e t tenv) el m.params
         | None -> ()
       end
     in
-    check_meth_code
-  and check_mdef c m =
-    check_meth c None m
-  and check_class c =
+    check_meth_code *)
+
+  and check_mdef (c : class_def)
+                 (m : method_def) : unit =
+    (* Create local environment with (in this order) :
+       global + this + params (we already checked type) + local var of the method *)
+    let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) p.globals Env.empty in
+    let tenv = Env.add "@This" (TClass c.class_name) tenv in
+    let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) m.locals tenv in
+    let tenv = List.fold_left (fun acc (x, t) -> Env.add x t acc) tenv m.params 
+    in
+    (* Check if method is well-typed *)
+    check_seq m.code m.return tenv
+
+  and check_class (c : class_def) : unit =
     Hashtbl.iter (fun _ -> check_mdef c) c.methods ;
     match c.parent with
     | None -> ()
@@ -309,4 +337,4 @@ let typecheck_prog p =
       end
   in
   Hashtbl.iter (fun _ -> check_class) p.classes ; (* Check classes definitions *)
-  check_seq p.main TVoid tenv ; (* Check main *)
+  check_seq p.main TVoid tenv (* Check main *)
