@@ -9,14 +9,17 @@ type typ =
   | TString
   | TBool
   | TClass of string
+  | TTab of typ
 
-let typ_to_string = function
+let rec typ_to_string (t : typ) : string =
+  match t with
   | TVoid -> "void"
   | TInt -> "int"
   | TFloat -> "float"
   | TString -> "string"
   | TBool -> "bool"
   | TClass s -> s
+  | TTab t -> (typ_to_string t) ^ "[]"
 
 (* Operators *)
 type unop  = Opp | Not
@@ -27,14 +30,18 @@ type setop = S_Set | S_Sub | S_Add | S_Mul | S_Div
 
 (* Expressions *)
 type expr =
-  (* Arithmetic *)
+  (* Constant (and some casting) *)
   | Int        of int
-  | IntCast    of expr
+  (* | IntCast    of expr *)
   | Float      of float
-  | FloatCast  of expr
+  (* | FloatCast  of expr *)
   | String     of string
   | Bool       of bool
   | Null
+  (* Tabs *)
+  | TabCstr    of typ * expr
+  | Tab        of expr array
+  (* Operators *)
   | Unop       of unop * expr
   | Binop      of binop * expr * expr
   | TerCond    of expr * expr * expr
@@ -52,8 +59,9 @@ type expr =
 
 (* Memory access : either a variable or an attribute *)
 and mem_access =
-  | Var   of string
-  | Field of expr (* object *) * string (* attribute's name *)
+  | Var    of string
+  | Field  of expr (* object *) * string (* attribute's name *)
+  | TabGet of expr (* tab *) * expr (* index *)
 
 (* Instructions *)
 type instr =
@@ -85,13 +93,13 @@ and seq = instr list
 
    Method's body is similar to the main's body *)
 type method_def = {
-    method_name: string ;
-    code: seq ;
+    method_name : string ;
+    code : seq ;
     (* can't change into a Hashtbl because it needs to be ordered 
       (and the params are an expr list so it keeps the order) *)
-    params: (string * typ) list ;
-    locals: (string, typ) Hashtbl.t ;
-    return: typ ;
+    params : (string * typ) list ;
+    locals : (string, typ) Hashtbl.t ;
+    return : typ ;
   }
         
 (* Class's definition
@@ -101,15 +109,15 @@ type method_def = {
 
    The class's constructor is a void-typed method called "constructor" *)
 type class_def = {
-    class_name: string ;
-    attributes: (string, typ) Hashtbl.t ;
-    methods: (string, method_def) Hashtbl.t ;
-    parent: string option ;
+    class_name : string ;
+    attributes : (string, typ) Hashtbl.t ;
+    methods : (string, method_def) Hashtbl.t ;
+    parent : string option ;
   }
 
 (* Program : global variables, classes, inheritances and a sequence of instruction (the main) *)
 type program = {
-    classes: (string, class_def) Hashtbl.t ;
-    globals: (string, typ) Hashtbl.t ;
-    main: seq ;
+    classes : (string, class_def) Hashtbl.t ;
+    globals : (string, typ) Hashtbl.t ;
+    main : seq ;
   }

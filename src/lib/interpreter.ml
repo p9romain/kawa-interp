@@ -6,6 +6,7 @@ type value =
   | VString of string
   | VBool of bool
   | VObj  of obj
+  | VTab of value array * typ
   | VNull
 and obj = {
   cls:    string;
@@ -29,7 +30,13 @@ and string_of_value (v : value) : string =
   | VFloat f -> Printf.sprintf "%F" f
   | VString s -> s
   | VBool b -> if b then "true" else "false"
-  | VObj o' -> string_of_obj o'
+  | VObj o -> string_of_obj o
+  | VTab (t, _) -> "[ " ^ (Array.fold_left 
+                        (fun acc v -> 
+                          acc ^ (if acc = "" then "" else "; ")  
+                              ^ string_of_value v
+                        ) 
+                      "" t) ^ " ]"
   | VNull -> "null"
 
 let typ_of_value (v : value) : typ =
@@ -38,7 +45,8 @@ let typ_of_value (v : value) : typ =
   | VFloat _ -> TFloat
   | VBool _ -> TBool
   | VString _ -> TString
-  | VObj o -> TClass (o.cls)
+  | VObj o -> TClass o.cls
+  | VTab (_, t) -> TTab t
   | VNull -> TVoid
 
 (* To manage overloading : method names are "Name@@[types]" *)
@@ -111,6 +119,21 @@ let mem_access (global_env : (string, value) Hashtbl.t)
                                      ^ "' in the object of class '" ^ o.cls ^ "'."))
         end
       | _ -> failwith "Impossible : typechecker's work"
+    end
+  | TabGet (e, i) ->
+    begin
+      match eval_expr e with
+      | VTab (t, _) -> 
+        begin
+          match eval_expr i with
+          | VInt n -> 
+            try
+              Array.get t n
+            with _ ->
+              raise (Error ("index out of bounds"))
+          | _ -> failwith "Impossible : typechecker's work"
+        end
+      | _ -> failwith "Impossible : typechecker's work" 
     end
 
 (* Execute the main of [p] *)
@@ -188,6 +211,16 @@ let exec_prog (p : program) : unit =
           | VInt n, VFloat f -> VFloat ((float n) +. f)
           | VFloat f1, VFloat f2 -> VFloat (f1 +. f2)
           | VString s1, VString s2 -> VString(s1 ^ s2)
+          | VTab (t1, t1'), VTab (t2, t2') ->
+            begin
+              match t1', t2' with
+              | TInt, TFloat ->
+                VTab(Array.append (Array.map (fun (VInt n) -> VFloat (float n)) t1) t2, TFloat)
+              | TFloat, TInt ->
+                VTab(Array.append t1 (Array.map (fun (VInt n) -> VFloat (float n)) t2), TFloat)
+              | _, _ -> (* typechecker's work to check compatibility *)
+                VTab(Array.append t1 t2, t1')
+            end
           | _ -> failwith "Impossible : typechecker's work"
         end
       | Sub -> num_to_num (-) (-.)
@@ -293,24 +326,39 @@ let exec_prog (p : program) : unit =
     and eval_expr (e : expr) : value =
       match e with
       | Int n -> VInt n
-      | IntCast e ->
+      (* | IntCast e ->
         begin
           match eval_expr e with
           | VInt n -> VInt n
           | VFloat f -> VInt (int_of_float f)
           | _ -> failwith "Impossible : typechecker's work"
-        end
+        end *)
       | Float f -> VFloat f
-      | FloatCast e ->
+      (* | FloatCast e ->
         begin
           match eval_expr e with
           | VInt n -> VFloat (float n)
           | VFloat f -> VFloat f
           | _ -> failwith "Impossible : typechecker's work"
-        end
+        end *)
       | String s -> VString s
       | Bool b -> VBool b
       | Null -> VNull
+      | TabCstr (t, e) ->
+        begin
+          match eval_expr e with
+          | VInt n -> VTab (Array.make n VNull, t)
+          | _ -> failwith "Impossible : typechecker's work"
+        end
+      | Tab t ->
+        (* typechecker check type consistency *)
+        begin
+          match Array.length t with
+          | 0 -> VTab ([||], TVoid)
+          | _ -> 
+            let t = Array.map eval_expr t in 
+            VTab (t, typ_of_value (Array.get t 0))
+        end
       | Unop (op, e) -> eval_unop op e
       | Binop (op, e1, e2) -> eval_binop op e1 e2
       | TerCond (t, e1, e2) ->
@@ -326,25 +374,31 @@ let exec_prog (p : program) : unit =
       | InstanceOf (e, t) ->
         begin
           let typ_e = typ_of_value (eval_expr e) in
-          match typ_e, t with
-          | TInt, TInt
-          | TFloat, TFloat
-          | TString, TString
-          | TBool, TBool -> VBool true
-          | TClass c1, TClass c2 ->
-            (* Check if the class exists *)
-            let _ = get_class c2 in
-            let rec check_inheritance_type (c : string) : value =
-              if c <> c2 then
-                let cl = get_class c in
-                  match cl.parent with
-                  | Some s_pt -> check_inheritance_type s_pt
-                  | None -> VBool false
-              else
-                VBool true
-            in
-            check_inheritance_type c1
-          | _, _ -> VBool false
+          let rec check_type (t1 : typ)
+                             (t2 : typ) : value =
+            match t1, t2 with
+            | TInt, TInt
+            | TFloat, TFloat
+            | TString, TString
+            | TBool, TBool -> VBool true
+            | TClass c1, TClass c2 ->
+              (* Check if the class exists *)
+              let _ = get_class c2 in
+              let rec check_inheritance_type (c : string) : value =
+                if c <> c2 then
+                  let cl = get_class c in
+                    match cl.parent with
+                    | Some s_pt -> check_inheritance_type s_pt
+                    | None -> VBool false
+                else
+                  VBool true
+              in
+              check_inheritance_type c1
+            | TTab t1', TTab t2' ->
+              check_type t1' t2'
+            | _, _ -> VBool false
+          in
+          check_type typ_e t
         end
       | Get m -> mem_access m eval_expr (fun _ _ x -> x)
       | This ->
@@ -384,7 +438,6 @@ let exec_prog (p : program) : unit =
           | VBool b ->
             if not b then
               raise (Error "AssertionError")
-
           | _ -> failwith "Impossible : typechecker's work"
         end
       | Set (m, s, e) ->

@@ -40,21 +40,21 @@ let typecheck_prog (p : program) : unit =
                 (tenv : typ Env.t) : typ = 
     match e with
     | Int _ -> TInt   
-    | IntCast e ->
+    (* | IntCast e ->
       begin
         match type_expr e tenv with
         | TInt   
         | TFloat -> TInt
         | _ -> error "type error : the int casting can only be used on integers or floats"
-      end   
+      end   *) 
     | Float _ -> TFloat   
-    | FloatCast e ->
+    (* | FloatCast e ->
       begin
         match type_expr e tenv with
         | TInt   
         | TFloat -> TFloat
         | _ -> error "type error : the int casting can only be used on integers or floats"
-      end
+      end *)
     | String _ -> TString
     | Bool _ -> TBool
     | Null -> TVoid

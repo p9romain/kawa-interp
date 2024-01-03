@@ -32,7 +32,7 @@
 %token INT FLOAT STRING BOOL VOID
 %token <string> IDENT
 
-%token LPAR RPAR BEGIN END SEMI
+%token LPAR RPAR LBRA RBRA BEGIN END SEMI
 
 %token PLUS U_MINUS MINUS TIMES SLASH MOD
 %token PLUS_SET MINUS_SET TIMES_SET SLASH_SET
@@ -43,7 +43,7 @@
 %token SET
 
 %token INTERO TWO_PT IF ELSE
-%token DO WHILE FOR
+%token DO WHILE
 
 %token NEW CLASS EXTENDS
 %token THIS DOT
@@ -59,21 +59,25 @@
 
    Source :
    [https://pages.cs.wisc.edu/~willb/cs302/java-operator-precedence.pdf]
+
+   Even if some are useless, I choose to put them just in case
 */
+%right SET PLUS_SET MINUS_SET TIMES_SET SLASH_SET
 %right INTERO TWO_PT
 
 %left OR
 %left AND
 %left EQ NEQ
-%left LE LT GE GT INSTANCEOF
+%left LT LE GT GE INSTANCEOF
 %nonassoc NOT
 
 %left PLUS MINUS 
 %left TIMES SLASH MOD
 %nonassoc U_MINUS
 
-%left DOT
+%right NEW
 
+%left LBRA RBRA DOT COMMA
 
 
 %start program
@@ -194,6 +198,7 @@ typ:
 | STRING { TString }
 | BOOL { TBool }
 | i=IDENT { TClass i }
+| t=typ LBRA RBRA { TTab t }
 | VOID { TVoid }
 ;
 
@@ -233,17 +238,20 @@ method_variables:
 
 expr:
 | n=N { Int(n) }
-| INT LPAR e=expr RPAR { IntCast(e) }
-| LPAR INT RPAR e=expr { IntCast(e) }
+/*| INT LPAR e=expr RPAR { IntCast(e) }
+| LPAR INT RPAR e=expr { IntCast(e) }*/
 | f=F { Float(f) }
-| FLOAT LPAR e=expr RPAR { FloatCast(e) }
-| LPAR FLOAT RPAR e=expr { FloatCast(e) }
+/*| FLOAT LPAR e=expr RPAR { FloatCast(e) }
+| LPAR FLOAT RPAR e=expr { FloatCast(e) }*/
 | s=S { String(s) }
 
 | TRUE { Bool(true) }
 | FALSE { Bool(false) }
 
 | NULL { Null }
+
+| t=tab_def { t }
+| BEGIN arg=separated_list(COMMA, expr) END { Tab( Array.of_seq (List.to_seq arg) ) }
 
 | u=uop e=expr { Unop(u, e) }
 | e1=expr b=bop e2=expr { Binop(b, e1, e2) }
@@ -268,7 +276,27 @@ expr:
 mem:
 | i=IDENT { Var i }
 | e=expr DOT i=IDENT { Field(e, i) }
+| t=expr LBRA i=expr RBRA { TabGet(t, i) }
 ;
+tab_typ:
+| INT { TInt }
+| FLOAT { TFloat }
+| STRING { TString }
+| BOOL { TBool }
+| i=IDENT { TClass i }
+;
+tab_def:
+| NEW t=tab_typ LBRA e=expr RBRA { TabCstr(t, e) }
+/*
+    TODO : Multi-D Tabs
+
+| t=tab_def LBRA e=expr RBRA 
+  { 
+    match t with
+    | TabCstr (typ, _) -> TabCstr(TTab typ, e)
+    | _->   
+  }
+*/
 
 
 

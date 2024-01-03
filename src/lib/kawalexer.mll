@@ -25,7 +25,7 @@
 
       "do",         DO ;
       "while",      WHILE ;
-      "for",        FOR ;
+      (*"for",        FOR ;*)
 
       "new",        NEW ;
       "class",      CLASS ;
@@ -74,6 +74,8 @@ rule token = parse
 
   | "("   { LPAR }
   | ")"   { RPAR }
+  | "["   { LBRA }
+  | "]"   { RBRA }
   | "{"   { BEGIN }
   | "}"   { END }
   | ";"   { SEMI }
