@@ -120,21 +120,6 @@ let mem_access (global_env : (string, value) Hashtbl.t)
         end
       | _ -> failwith "Impossible : typechecker's work"
     end
-  | TabGet (e, i) ->
-    begin
-      match eval_expr e with
-      | VTab (t, _) -> 
-        begin
-          match eval_expr i with
-          | VInt n -> 
-            try
-              Array.get t n
-            with _ ->
-              raise (Error ("index out of bounds"))
-          | _ -> failwith "Impossible : typechecker's work"
-        end
-      | _ -> failwith "Impossible : typechecker's work" 
-    end
 
 (* Execute the main of [p] *)
 let exec_prog (p : program) : unit =
@@ -344,21 +329,6 @@ let exec_prog (p : program) : unit =
       | String s -> VString s
       | Bool b -> VBool b
       | Null -> VNull
-      | TabCstr (t, e) ->
-        begin
-          match eval_expr e with
-          | VInt n -> VTab (Array.make n VNull, t)
-          | _ -> failwith "Impossible : typechecker's work"
-        end
-      | Tab t ->
-        (* typechecker check type consistency *)
-        begin
-          match Array.length t with
-          | 0 -> VTab ([||], TVoid)
-          | _ -> 
-            let t = Array.map eval_expr t in 
-            VTab (t, typ_of_value (Array.get t 0))
-        end
       | Unop (op, e) -> eval_unop op e
       | Binop (op, e1, e2) -> eval_binop op e1 e2
       | TerCond (t, e1, e2) ->

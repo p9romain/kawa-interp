@@ -38,9 +38,6 @@ type expr =
   | String     of string
   | Bool       of bool
   | Null
-  (* Tabs *)
-  | TabCstr    of typ * expr
-  | Tab        of expr array
   (* Operators *)
   | Unop       of unop * expr
   | Binop      of binop * expr * expr
@@ -61,7 +58,6 @@ type expr =
 and mem_access =
   | Var    of string
   | Field  of expr (* object *) * string (* attribute's name *)
-  | TabGet of expr (* tab *) * expr (* index *)
 
 (* Instructions *)
 type instr =

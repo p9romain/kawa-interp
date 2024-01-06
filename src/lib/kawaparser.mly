@@ -250,9 +250,6 @@ expr:
 
 | NULL { Null }
 
-/*| t=tab_def { t }*/
-| BEGIN arg=separated_list(COMMA, expr) END { Tab( Array.of_seq (List.to_seq arg) ) }
-
 | u=uop e=expr { Unop(u, e) }
 | e1=expr b=bop e2=expr { Binop(b, e1, e2) }
 
@@ -276,26 +273,7 @@ expr:
 mem:
 | i=IDENT { Var i }
 | e=expr DOT i=IDENT { Field(e, i) }
-| t=expr LBRA i=expr RBRA { TabGet(t, i) }
 ;
-tab_typ:
-| INT { TInt }
-| FLOAT { TFloat }
-| STRING { TString }
-| BOOL { TBool }
-| i=IDENT { TClass i }
-;
-/*tab_def:
-  Java def of tabs + Multi-d
-
-| NEW t=tab_typ LBRA e=expr RBRA { TabCstr(t, e) }
-| t=tab_def LBRA e=expr RBRA 
-  { 
-    match t with
-    | TabCstr (typ, _) -> TabCstr(TTab typ, e)
-    | _->   
-  }
-*/
 
 
 
