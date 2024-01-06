@@ -43,7 +43,7 @@
 %token SET
 
 %token INTERO TWO_PT IF ELSE
-%token DO WHILE
+%token DO WHILE FOR
 
 %token NEW CLASS EXTENDS
 %token THIS DOT
@@ -137,7 +137,7 @@ program_classes:
 | MAIN s=seq EOF { [], s }
 ;
 seq:
-| BEGIN body=list(instr) END { body }
+| BEGIN body=list(instr_semi) END { body }
 ;
 
 
@@ -216,7 +216,7 @@ constructor_def:
 constructor_variables:
 | var=var_decl vars=constructor_variables
   { (var :: (fst vars)), (snd vars) }
-| body=list(instr)
+| body=list(instr_semi)
   { [], body }
 method_def:
 | t=typ i=IDENT LPAR arg=separated_list(COMMA, t=typ i=IDENT { (i, t) }) RPAR BEGIN vars=method_variables END
@@ -231,7 +231,7 @@ method_def:
 method_variables:
 | var=var_decl vars=method_variables
   { (var :: (fst vars)), (snd vars) }
-| body=list(instr)
+| body=list(instr_semi)
   { [], body }
 
 
@@ -278,20 +278,27 @@ mem:
 
 
 instr:
-| PRINT LPAR e=expr RPAR SEMI { Print e }
-| ASSERT LPAR e=expr RPAR SEMI { Assert e }
+| PRINT LPAR e=expr RPAR { Print e }
+| ASSERT LPAR e=expr RPAR { Assert e }
 
-| m=mem s=set e=expr SEMI { Set(m, s, e) }
+| m=mem s=set e=expr { Set(m, s, e) }
 
+| DO s=seq WHILE LPAR e=expr RPAR { DoWhile(s, While(e, s)) }
+
+| RETURN e=expr { Return e }
+
+| e=expr { Expr e }
+;
+instr_semi:
 | c=cond { Cond(c) }
 
+| FOR LPAR s=instr SEMI c=expr SEMI incr=instr RPAR seq=seq
+  { For(None, s, c, incr, seq) }
+| FOR LPAR t=typ i=IDENT SET e=expr SEMI c=expr SEMI incr=instr RPAR seq=seq
+  { For(Some t, Set(Var(i), S_Set, e), c, incr, seq) }
 | WHILE LPAR e=expr RPAR s=seq { While(e, s) }
-| DO s=seq WHILE LPAR e=expr RPAR SEMI { DoWhile(s, While(e, s)) }
 
-| RETURN e=expr SEMI { Return e }
-
-| e=expr SEMI { Expr e }
-;
+| i=instr SEMI { i }
 cond:
 | IF LPAR e=expr RPAR s=seq { If(e, s) }
 | IF LPAR e=expr RPAR s1=seq ELSE s2=seq { If_Else(e, s1, Else(s2)) }

@@ -70,8 +70,8 @@ type instr =
   (* Condition control *)
   | Cond   of cond
   (* Loops *)
-  (* | For    of expr * expr * expr * seq *)
-  | While  of expr * seq
+  | For     of typ option * instr * expr * instr * seq
+  | While   of expr * seq
   | DoWhile of seq * instr
   (* End of a method *)
   | Return of expr

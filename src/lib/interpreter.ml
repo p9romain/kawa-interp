@@ -455,6 +455,24 @@ let exec_prog (p : program) : unit =
           | S_Mul -> op_then_set Mul
           | S_Div -> op_then_set Div
         end
+      | For (t, set, cond, incr, seq) ->
+        begin
+          let var =
+            match t with
+            | None -> None (* we use an external variable in the loop (or we do something else) *)
+            | Some _ -> (* we need to create a variable *)
+              let Set(Var(var), _, expr) = set in
+              let () = Hashtbl.add local_env var VNull in
+              (* t is useful only for type checking *)
+              Some var
+          in
+          exec set ;
+          exec (While(cond, seq @ [incr])) ;
+          (* if var created *)
+          match var with
+          | None -> ()
+          | Some s -> Hashtbl.remove local_env s
+        end
       | While (e, s) ->
         begin
           match eval_expr e with
