@@ -9,7 +9,6 @@ type typ =
   | TString
   | TBool
   | TClass of string
-  | TTab of typ
 
 let rec typ_to_string (t : typ) : string =
   match t with
@@ -19,7 +18,6 @@ let rec typ_to_string (t : typ) : string =
   | TString -> "string"
   | TBool -> "bool"
   | TClass s -> s
-  | TTab t -> (typ_to_string t) ^ "[]"
 
 (* Operators *)
 type unop  = Opp | Not

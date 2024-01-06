@@ -198,7 +198,6 @@ typ:
 | STRING { TString }
 | BOOL { TBool }
 | i=IDENT { TClass i }
-| t=typ LBRA RBRA { TTab t }
 | VOID { TVoid }
 ;
 

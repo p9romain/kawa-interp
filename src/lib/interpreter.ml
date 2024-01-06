@@ -6,7 +6,6 @@ type value =
   | VString of string
   | VBool of bool
   | VObj  of obj
-  | VTab of value array * typ
   | VNull
 and obj = {
   cls:    string;
@@ -31,12 +30,6 @@ and string_of_value (v : value) : string =
   | VString s -> s
   | VBool b -> if b then "true" else "false"
   | VObj o -> string_of_obj o
-  | VTab (t, _) -> "[ " ^ (Array.fold_left 
-                        (fun acc v -> 
-                          acc ^ (if acc = "" then "" else "; ")  
-                              ^ string_of_value v
-                        ) 
-                      "" t) ^ " ]"
   | VNull -> "null"
 
 let typ_of_value (v : value) : typ =
@@ -46,7 +39,6 @@ let typ_of_value (v : value) : typ =
   | VBool _ -> TBool
   | VString _ -> TString
   | VObj o -> TClass o.cls
-  | VTab (_, t) -> TTab t
   | VNull -> TVoid
 
 (* To manage overloading : method names are "Name@@[types]" *)
@@ -196,16 +188,6 @@ let exec_prog (p : program) : unit =
           | VInt n, VFloat f -> VFloat ((float n) +. f)
           | VFloat f1, VFloat f2 -> VFloat (f1 +. f2)
           | VString s1, VString s2 -> VString(s1 ^ s2)
-          | VTab (t1, t1'), VTab (t2, t2') ->
-            begin
-              match t1', t2' with
-              | TInt, TFloat ->
-                VTab(Array.append (Array.map (fun (VInt n) -> VFloat (float n)) t1) t2, TFloat)
-              | TFloat, TInt ->
-                VTab(Array.append t1 (Array.map (fun (VInt n) -> VFloat (float n)) t2), TFloat)
-              | _, _ -> (* typechecker's work to check compatibility *)
-                VTab(Array.append t1 t2, t1')
-            end
           | _ -> failwith "Impossible : typechecker's work"
         end
       | Sub -> num_to_num (-) (-.)
@@ -364,8 +346,6 @@ let exec_prog (p : program) : unit =
                   VBool true
               in
               check_inheritance_type c1
-            | TTab t1', TTab t2' ->
-              check_type t1' t2'
             | _, _ -> VBool false
           in
           check_type typ_e t
