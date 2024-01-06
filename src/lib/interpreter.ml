@@ -126,7 +126,7 @@ let exec_prog (p : program) : unit =
   let global_env = Hashtbl.create 16 in
   (* alias *)
   let get_class = get_class p.classes in 
-  Hashtbl.iter (fun x _ -> Hashtbl.replace global_env x VNull) p.globals;
+  Hashtbl.iter (fun x _ -> Hashtbl.add global_env x VNull) p.globals;
 
   (* Execute a seq [s] with the local environment [local_env] *)
   let rec exec_seq (s : seq) 
@@ -294,9 +294,9 @@ let exec_prog (p : program) : unit =
                   (this : obj) 
                   (args : (string, value) Hashtbl.t) : value =
       (* Use an @ because i'm the only one who is allowed to do it (privelege) *)
-      Hashtbl.replace args "@This" (VObj this) ;
+      Hashtbl.add args "@This" (VObj this) ;
       (* Add local variables *)
-      Hashtbl.iter (fun x _ -> Hashtbl.replace args x VNull) f.locals ;
+      Hashtbl.iter (fun x _ -> Hashtbl.add args x VNull) f.locals ;
       (* Execute method *)
       try
         exec_seq f.code args ;
@@ -382,7 +382,7 @@ let exec_prog (p : program) : unit =
         (* Create a new object *)
         let o = { cls = s ; fields = Hashtbl.create 5 } in
         let c = get_class s in
-        let () = Hashtbl.iter (fun x _ -> Hashtbl.replace o.fields x VNull ) c.attributes in
+        let () = Hashtbl.iter (fun x _ -> Hashtbl.add o.fields x VNull ) c.attributes in
         VObj o
       | NewCstr (s, el) ->
         (* Create a new object *)
@@ -468,7 +468,7 @@ let exec_prog (p : program) : unit =
           in
           exec set ;
           exec (While(cond, seq @ [incr])) ;
-          (* if var created *)
+          (* if var was created *)
           match var with
           | None -> ()
           | Some s -> Hashtbl.remove local_env s
