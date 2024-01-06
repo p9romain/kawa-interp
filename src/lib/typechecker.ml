@@ -257,6 +257,21 @@ let typecheck_prog (p : program) : unit =
         | S_Div -> op_then_set Div
       end
     | Cond c -> check_cond c ret tenv
+    | For (t, set, cond, incr, seq) ->
+      begin
+        let tenv =
+          match t with
+          | None -> tenv (* we use an external variable in the loop (or we do something else) *)
+          | Some t -> (* we need to create a variable *)
+            let Set(Var(var), _, _) = set in
+            let tenv = Env.add var t tenv in
+            tenv
+        in
+        check_instr set TVoid tenv ;
+        check cond TBool tenv ;
+        check_instr incr TVoid tenv ;
+        check_seq seq ret tenv ;
+      end
     | While (e, s) ->
       check e TBool tenv ;
       check_seq s ret tenv

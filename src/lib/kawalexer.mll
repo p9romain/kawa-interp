@@ -64,13 +64,13 @@ rule token = parse
   | ['\n']           { new_line lexbuf; token lexbuf }
   | [' ' '\t' '\r']+ { token lexbuf }
 
-  | "//" [^ '\n']* "\n" { new_line lexbuf; token lexbuf }
-  | "/*"                { comment lexbuf; token lexbuf }
+  | "//" [^ '\n']* '\n'? { new_line lexbuf; token lexbuf }
+  | "/*"                 { comment lexbuf; token lexbuf }
 
-  | integers as n { N(int_of_string n) }
-  | floats as f { F(Float.of_string f) }
+  | integers as n        { N(int_of_string n) }
+  | floats as f          { F(Float.of_string f) }
   | '\"' (str as s) '\"' { S(s) }
-  | ident as id { keyword_or_ident id }
+  | ident as id          { keyword_or_ident id }
 
   | "("   { LPAR }
   | ")"   { RPAR }

@@ -461,7 +461,7 @@ let exec_prog (p : program) : unit =
             match t with
             | None -> None (* we use an external variable in the loop (or we do something else) *)
             | Some _ -> (* we need to create a variable *)
-              let Set(Var(var), _, expr) = set in
+              let Set(Var(var), _, _) = set in
               let () = Hashtbl.add local_env var VNull in
               (* t is useful only for type checking *)
               Some var
