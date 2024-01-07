@@ -25,11 +25,12 @@
 
 %token <int> N
 %token <float> F
+%token <char> C
 %token <string> S
 %token TRUE FALSE
 %token NULL
 
-%token INT FLOAT STRING BOOL VOID
+%token INT FLOAT CHAR STRING BOOL VOID
 %token <string> IDENT
 
 %token LPAR RPAR LBRA RBRA BEGIN END SEMI
@@ -196,6 +197,7 @@ typ:
 | INT { TInt }
 | FLOAT { TFloat }
 | STRING { TString }
+| CHAR { TChar }
 | BOOL { TBool }
 | i=IDENT { TClass i }
 | VOID { TVoid }
@@ -237,12 +239,14 @@ method_variables:
 
 expr:
 | n=N { Int(n) }
-/*| INT LPAR e=expr RPAR { IntCast(e) }
-| LPAR INT RPAR e=expr { IntCast(e) }*/
+| INT LPAR e=expr RPAR { IntCast(e) }
+/*| LPAR INT RPAR e=expr { IntCast(e) }*/
 | f=F { Float(f) }
-/*| FLOAT LPAR e=expr RPAR { FloatCast(e) }
-| LPAR FLOAT RPAR e=expr { FloatCast(e) }*/
+| FLOAT LPAR e=expr RPAR { FloatCast(e) }
+/*| LPAR FLOAT RPAR e=expr { FloatCast(e) }*/
+| c=C { Char(c) }
 | s=S { String(s) }
+| STRING LPAR e=expr RPAR { StringCast(e) }
 
 | TRUE { Bool(true) }
 | FALSE { Bool(false) }

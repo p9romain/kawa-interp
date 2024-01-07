@@ -3,6 +3,7 @@ open Kawa
 type value =
   | VInt  of int
   | VFloat of float
+  | VChar of char
   | VString of string
   | VBool of bool
   | VObj  of obj
@@ -27,6 +28,7 @@ and string_of_value (v : value) : string =
   match v with
   | VInt n -> string_of_int n
   | VFloat f -> Printf.sprintf "%F" f
+  | VChar c -> String.make 1 c
   | VString s -> s
   | VBool b -> if b then "true" else "false"
   | VObj o -> string_of_obj o
@@ -37,6 +39,7 @@ let typ_of_value (v : value) : typ =
   | VInt _ -> TInt
   | VFloat _ -> TFloat
   | VBool _ -> TBool
+  | VChar _ -> TChar
   | VString _ -> TString
   | VObj o -> TClass o.cls
   | VNull -> TVoid
@@ -124,6 +127,7 @@ let exec_prog (p : program) : unit =
         match t with
         | TInt -> VInt 0
         | TFloat -> VFloat 0.0
+        | TChar -> VChar (Char.chr 0)
         | TString -> VString ""
         | TBool -> VBool false
         | _ -> VNull
@@ -183,12 +187,18 @@ let exec_prog (p : program) : unit =
           it's the same one for both
       *)
       let compare (op_int : int -> int -> bool) 
-                  (op_float : float -> float -> bool) : value =
+                  (op_float : float -> float -> bool)
+                  (op_char : char -> char -> bool)
+                  (op_string : string -> string -> bool) : value =
         match eval_expr e1, eval_expr e2 with
         | VInt n1, VInt n2 -> VBool (op_int n1 n2)
         | VFloat f, VInt n -> VBool (op_float f (float n))
         | VInt n, VFloat f -> VBool (op_float (float n) f)
         | VFloat f1, VFloat f2 -> VBool (op_float f1 f2)
+        | VChar c1, VChar c2 -> VBool (op_char c1 c2)
+        | VChar c, VString s -> VBool (op_string (String.make 1 c) s)
+        | VString s, VChar c -> VBool (op_string s (String.make 1 c))
+        | VString s1, VString s2 -> VBool (op_string s1 s2)
         | _ -> failwith "Impossible : typechecker's work"
       in
       match op with
@@ -199,7 +209,10 @@ let exec_prog (p : program) : unit =
           | VFloat f, VInt n -> VFloat (f +. (float n))
           | VInt n, VFloat f -> VFloat ((float n) +. f)
           | VFloat f1, VFloat f2 -> VFloat (f1 +. f2)
-          | VString s1, VString s2 -> VString(s1 ^ s2)
+          | VChar c1, VChar c2 -> VString ((String.make 1 c1) ^ (String.make 1 c2))
+          | VChar c, VString s -> VString ((String.make 1 c) ^ s)
+          | VString s, VChar c -> VString (s ^ (String.make 1 c))
+          | VString s1, VString s2 -> VString (s1 ^ s2)
           | _ -> failwith "Impossible : typechecker's work"
         end
       | Sub -> num_to_num (-) (-.)
@@ -211,10 +224,11 @@ let exec_prog (p : program) : unit =
           | VInt n1, VInt n2 -> VInt (n1 mod n2)
           | _ -> failwith "Impossible : typechecker's work"
         end
-      | Le -> compare (<=) (<=)
-      | Lt -> compare (<) (<)
-      | Ge -> compare (>=) (>=)
-      | Gt -> compare (>) (>)
+      (* For integers and floats, and chars and strings *)
+      | Le -> compare (<=) (<=) (<=) (<=)
+      | Lt -> compare (<) (<) (<) (<)
+      | Ge -> compare (>=) (>=) (>=) (>=)
+      | Gt -> compare (>) (>) (>) (>)
       | Eq ->
         begin
           match eval_expr e1, eval_expr e2 with
@@ -222,13 +236,13 @@ let exec_prog (p : program) : unit =
           (* Two objects are equal if and only if they are physically the same object 
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 == o2 && o1 = o2)
+          | VString s, v -> VBool(s = string_of_value v)
+          | v, VString s -> VBool(string_of_value v = s)
           | VNull, VNull -> VBool(true)
           | VNull, _ 
           | _, VNull -> VBool(false)
-          | VString s, v -> VBool(s = string_of_value v)
-          | v, VString s -> VBool(string_of_value v = s)
-          (* For integers and floats *)
-          | _ -> compare (=) (=)
+          (* For integers and floats, and chars and strings *)
+          | _ -> compare (=) (=) (=) (=)
         end
       | Neq ->
         begin
@@ -238,12 +252,12 @@ let exec_prog (p : program) : unit =
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 != o2 && o1 <> o2)
           | VNull, VNull -> VBool(false)
-          | VNull, _ 
-          | _, VNull -> VBool(true)
           | VString s, v -> VBool(s <> string_of_value v)
           | v, VString s -> VBool(string_of_value v <> s)
-          (* For integers and floats *)
-          | _ -> compare (<>) (<>)
+          | VNull, _ 
+          | _, VNull -> VBool(true)
+          (* For integers and floats, and chars and strings *)
+          | _ -> compare (<>) (<>) (<>) (<>)
         end
       | And -> bool_to_bool (&&)
       | Or ->  bool_to_bool (||)
@@ -299,28 +313,31 @@ let exec_prog (p : program) : unit =
       with Return v ->
         match v, f.return with
         | VInt n, TFloat -> VFloat (float n)
+        | VChar c, TString -> VString (String.make 1 c)
         | _ -> v
 
     (* Evaluate an expression [e] *)
     and eval_expr (e : expr) : value =
       match e with
       | Int n -> VInt n
-      (* | IntCast e ->
+      | IntCast e ->
         begin
           match eval_expr e with
           | VInt n -> VInt n
           | VFloat f -> VInt (int_of_float f)
           | _ -> failwith "Impossible : typechecker's work"
-        end *)
+        end
       | Float f -> VFloat f
-      (* | FloatCast e ->
+      | FloatCast e ->
         begin
           match eval_expr e with
           | VInt n -> VFloat (float n)
           | VFloat f -> VFloat f
           | _ -> failwith "Impossible : typechecker's work"
-        end *)
+        end
+      | Char c -> VChar c
       | String s -> VString s
+      | StringCast e -> VString (string_of_value (eval_expr e))
       | Bool b -> VBool b
       | Null -> VNull
       | Unop (op, e) -> eval_unop op e
@@ -341,10 +358,6 @@ let exec_prog (p : program) : unit =
           let rec check_type (t1 : typ)
                              (t2 : typ) : value =
             match t1, t2 with
-            | TInt, TInt
-            | TFloat, TFloat
-            | TString, TString
-            | TBool, TBool -> VBool true
             | TClass c1, TClass c2 ->
               (* Check if the class exists *)
               let _ = get_class c2 in
@@ -380,6 +393,7 @@ let exec_prog (p : program) : unit =
               match t with
               | TInt -> VInt 0
               | TFloat -> VFloat 0.0
+              | TChar -> VChar (Char.chr 0)
               | TString -> VString ""
               | TBool -> VBool false
               | _ -> VNull
@@ -437,6 +451,13 @@ let exec_prog (p : program) : unit =
                   with _ ->
                     raise (Error "invalid argument exception: must be a float")
                 end
+              | TChar -> 
+                begin
+                  try
+                    exec ( Set(m, S_Set, Char(String.get (read_line ()) 0) ) )
+                  with _ ->
+                    raise (Error "invalid argument exception: must be a character")
+                end
               | TString -> 
                 begin
                   try
@@ -480,6 +501,7 @@ let exec_prog (p : program) : unit =
               match v with
               | VInt n -> Int n
               | VFloat f -> Float f
+              | VChar c -> Char c
               | VString s -> String s
               (* We are talking about arithmetic so : error *)
               | _ -> failwith "Impossible : typechecker's work."

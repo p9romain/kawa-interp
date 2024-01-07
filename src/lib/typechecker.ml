@@ -23,6 +23,7 @@ let typecheck_prog (p : program) : unit =
         match typ_e, typ_expected with
         (* Type casting allowed for int and float *)
         | TInt, TFloat -> ()
+        | TChar, TString -> ()
          (* For inheritance : A extends B => B is also of type A *)
         | TClass cls_n, TClass cls_expected ->
           let rec check_inheritance_type (class_name : string) : unit =
@@ -40,22 +41,27 @@ let typecheck_prog (p : program) : unit =
                 (tenv : typ Env.t) : typ = 
     match e with
     | Int _ -> TInt   
-    (* | IntCast e ->
+    | IntCast e ->
       begin
         match type_expr e tenv with
         | TInt   
         | TFloat -> TInt
         | _ -> error "type error : the int casting can only be used on integers or floats"
-      end   *) 
+      end   
     | Float _ -> TFloat   
-    (* | FloatCast e ->
+    | FloatCast e ->
       begin
         match type_expr e tenv with
         | TInt   
         | TFloat -> TFloat
         | _ -> error "type error : the int casting can only be used on integers or floats"
-      end *)
-    | String _ -> TString
+      end
+    | Char _ -> TChar
+    | String _ -> TString  
+    | StringCast e -> 
+      (* check if [e] is well-typed *)
+      let _ = type_expr e tenv in
+      TString
     | Bool _ -> TBool
     | Null -> TVoid
     | Unop (op, e) ->
@@ -87,8 +93,11 @@ let typecheck_prog (p : program) : unit =
             | TInt, TFloat
             | TFloat, TInt
             | TFloat, TFloat -> TFloat
+            | TChar, TChar
+            | TChar, TString
+            | TString, TChar
             | TString, TString -> TString
-            | _ -> error "type error : the + operator can only be used on integers or floats, or between two strings"
+            | _ -> error "type error : the + operator can only be used on integers or floats, or on characters or strings"
           end
         | Sub 
         | Mul 
@@ -139,6 +148,9 @@ let typecheck_prog (p : program) : unit =
             | TInt, TFloat
             | TFloat, TInt
             | TFloat, TFloat
+            | TChar, TChar
+            | TChar, TString
+            | TString, TChar
             | TString, TString
             | TBool, TBool -> TBool
 
@@ -154,6 +166,7 @@ let typecheck_prog (p : program) : unit =
 
             | TInt, _
             | TFloat, _
+            | TChar, _
             | TString, _
             | TBool, _
             | TClass _, _-> type_error t1 t2
@@ -318,31 +331,6 @@ let typecheck_prog (p : program) : unit =
                 (ret : typ)
                 (tenv : typ Env.t) : unit =
     List.iter (fun i -> check_instr i ret tenv) s
-
-(*   and check_meth (c : class_def) 
-                 (params : expr list) 
-                 (m : method_def) : unit =
-    let check_meth_code =
-      (* Create local environment with (in this order) :
-       global + this + params (we already checked type) + local var of the method *)
-      let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) p.globals Env.empty in
-      let tenv = Env.add "@This" (TClass c.class_name) tenv in
-      let tenv = Hashtbl.fold (fun x t acc -> Env.add x t acc) m.locals tenv in
-      let tenv = List.fold_left (fun acc (x, t) -> Env.add x t acc) tenv m.params 
-      in
-      (* Check if method is well-typed *)
-      check_seq m.code m.return tenv
-    in
-    let () =
-      begin
-        match params with
-        | Some el ->
-          (* Check if every expr in [el] is well-typed *)
-          List.iter2 (fun e (_, t) -> check e t tenv) el m.params
-        | None -> ()
-      end
-    in
-    check_meth_code *)
 
   and check_mdef (c : class_def)
                  (m : method_def) : unit =

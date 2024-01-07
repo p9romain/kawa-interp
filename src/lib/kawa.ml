@@ -6,6 +6,7 @@ type typ =
   | TVoid
   | TInt
   | TFloat
+  | TChar
   | TString
   | TBool
   | TClass of string
@@ -15,6 +16,7 @@ let rec typ_to_string (t : typ) : string =
   | TVoid -> "void"
   | TInt -> "int"
   | TFloat -> "float"
+  | TChar -> "char"
   | TString -> "string"
   | TBool -> "bool"
   | TClass s -> s
@@ -30,10 +32,12 @@ type setop = S_Set | S_Sub | S_Add | S_Mul | S_Div
 type expr =
   (* Constant (and some casting) *)
   | Int        of int
-  (* | IntCast    of expr *)
+  | IntCast    of expr
   | Float      of float
-  (* | FloatCast  of expr *)
+  | FloatCast  of expr
+  | Char       of char
   | String     of string
+  | StringCast of expr
   | Bool       of bool
   | Null
   (* Operators *)
