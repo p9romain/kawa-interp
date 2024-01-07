@@ -37,6 +37,7 @@
 
       "main",       MAIN ;
       "print",      PRINT ;
+      "input",      INPUT ;
       "assert",     ASSERT ;
       "instanceof", INSTANCEOF ;
     ]
@@ -64,7 +65,7 @@ rule token = parse
   | ['\n']           { new_line lexbuf; token lexbuf }
   | [' ' '\t' '\r']+ { token lexbuf }
 
-  | "//" [^ '\n']* '\n'? { new_line lexbuf; token lexbuf }
+  | "//" [^ '\n']* '\n' { new_line lexbuf; token lexbuf }
   | "/*"                 { comment lexbuf; token lexbuf }
 
   | integers as n        { N(int_of_string n) }

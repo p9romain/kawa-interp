@@ -61,6 +61,8 @@ and mem_access =
 type instr =
   (* Print a boolean or an int *)
   | Print  of expr
+  (* Get a value from a terminal *)
+  | Input  of expr option * expr
   (* Check is something is true : else it terminates the program *)
   | Assert of expr
   (* Set the content in a variable or an attribute *)

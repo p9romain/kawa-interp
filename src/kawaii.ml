@@ -24,15 +24,15 @@ let () =
   with
     | Kawalexer.Error s ->
       report (lexeme_start_p lb, lexeme_end_p lb) ;
-      eprintf "in file '%s' :\nlexical error: %s@." file_name s ;
+      eprintf "in file '%s' :\nlexical error: %s\n\n" file_name s ;
       exit 1
     | Kawaparser.Error ->
       report (lexeme_start_p lb, lexeme_end_p lb) ;
-      eprintf "in file '%s' :\nsyntax error@." file_name ;
+      eprintf "in file '%s' :\nsyntax error\n\n" file_name ;
       exit 1
     | Interpreter.Error s ->
-      eprintf "in file '%s' :\ninterpreter error: %s@." file_name s ;
+      eprintf "in file '%s' :\n%s\n\n" file_name s ;
       exit 1
     | e ->
-      eprintf "in file '%s' :\nAnomaly: %s@." file_name (Printexc.to_string e) ;
+      eprintf "in file '%s' :\nAnomaly: %s\n\n" file_name (Printexc.to_string e) ;
       exit 2

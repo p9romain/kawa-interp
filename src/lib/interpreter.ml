@@ -118,7 +118,19 @@ let exec_prog (p : program) : unit =
   let global_env = Hashtbl.create 16 in
   (* alias *)
   let get_class = get_class p.classes in 
-  Hashtbl.iter (fun x _ -> Hashtbl.add global_env x VNull) p.globals;
+  Hashtbl.iter (
+    fun x t -> 
+      let t = (* default values (useful for intput !)*)
+        match t with
+        | TInt -> VInt 0
+        | TFloat -> VFloat 0.0
+        | TString -> VString ""
+        | TBool -> VBool false
+        | _ -> VNull
+      in
+      Hashtbl.add global_env x t
+    ) 
+  p.globals;
 
   (* Execute a seq [s] with the local environment [local_env] *)
   let rec exec_seq (s : seq) 
@@ -362,7 +374,20 @@ let exec_prog (p : program) : unit =
         (* Create a new object *)
         let o = { cls = s ; fields = Hashtbl.create 5 } in
         let c = get_class s in
-        let () = Hashtbl.iter (fun x _ -> Hashtbl.add o.fields x VNull ) c.attributes in
+        let () = Hashtbl.iter (
+          fun x t -> 
+            let t = (* default values (useful for intput !)*)
+              match t with
+              | TInt -> VInt 0
+              | TFloat -> VFloat 0.0
+              | TString -> VString ""
+              | TBool -> VBool false
+              | _ -> VNull
+            in
+            Hashtbl.add o.fields x t
+          ) 
+         c.attributes
+        in
         VObj o
       | NewCstr (s, el) ->
         (* Create a new object *)
@@ -382,12 +407,53 @@ let exec_prog (p : program) : unit =
     let rec exec (i : instr) : unit = 
       match i with
       | Print e -> Printf.printf "%s\n" (string_of_value (eval_expr e))
+      | Input (s, e) ->
+        begin
+          let () = 
+            match s with
+            | None -> ()
+            | Some s -> 
+              begin
+                match eval_expr s with
+                | VString s -> Printf.printf "%s\n" s
+                | _ -> failwith "Impossible : typechecker's work"
+              end
+          in
+          match e with
+          | Get m ->
+            begin
+              match typ_of_value (eval_expr e) with
+              | TInt -> 
+                begin
+                  try
+                    exec ( Set(m, S_Set, Int(read_int ()) ) )
+                  with _ ->
+                    raise (Error "invalid argument exception: must be an integer")
+                end
+              | TFloat -> 
+                begin
+                  try
+                    exec ( Set(m, S_Set, Float(read_float ()) ) )
+                  with _ ->
+                    raise (Error "invalid argument exception: must be a float")
+                end
+              | TString -> 
+                begin
+                  try
+                    exec ( Set(m, S_Set, String(read_line ()) ) )
+                  with _ ->
+                    raise (Error "invalid argument exception: must be a string")
+                end
+              | _ -> ()
+            end
+          | _ -> raise (Error "invalid argument exception: must be a variable or an object's field.")
+        end
       | Assert e ->
         begin
           match eval_expr e with
           | VBool b ->
             if not b then
-              raise (Error "AssertionError")
+              raise (Error "assertion error")
           | _ -> failwith "Impossible : typechecker's work"
         end
       | Set (m, s, e) ->

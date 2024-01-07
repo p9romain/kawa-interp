@@ -242,6 +242,23 @@ let typecheck_prog (p : program) : unit =
       (* Check if [e] is well-typed *)
       let _ = type_expr e tenv in 
       ()
+    | Input (s, e) ->
+      begin
+        let _ = 
+          match s with
+          | None -> ()
+          | Some s ->
+            (* Check if [s] is well-typed *)
+            let _ = check s TString tenv in
+            ()
+        in
+        (* Check if [e] is well-typed *)
+        match type_expr e tenv with
+        | TClass _
+        | TBool
+        | TVoid -> error "type error: variable need to be an integer, a float or a string"
+        | _ -> ()
+      end
     | Assert e ->
       check e TBool tenv
     | Set (m, s, e) ->
