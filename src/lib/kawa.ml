@@ -78,7 +78,7 @@ type instr =
   | While   of expr * seq
   | DoWhile of seq * instr
   (* End of a method *)
-  | Return of expr
+  | Return of expr option
   (* Expression *)
   | Expr   of expr
 and cond =

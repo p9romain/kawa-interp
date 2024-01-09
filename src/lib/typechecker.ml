@@ -3,8 +3,8 @@ open Kawa
 exception Error of string
 let error s = raise (Error s)
 let type_error ty_actual ty_expected =
-  error (Printf.sprintf "expected %s, got %s"
-           (typ_to_string ty_expected) (typ_to_string ty_actual))
+  error @@ 
+    Printf.sprintf "expected %s, got %s" (typ_to_string ty_expected) @@ typ_to_string ty_actual
 
 module Env = Map.Make(String)
 
@@ -118,7 +118,7 @@ let typecheck_prog (p : program) : unit =
                 | Div -> "/"
                 | _ -> ""
               in
-              error ("type error : the " ^ (op_to_string op) ^ " operator can only be used on integers or floats")
+              error @@ "type error : the " ^ (op_to_string op) ^ " operator can only be used on integers or floats"
           end
         | Mod ->
           check e1 TInt tenv ;
@@ -209,14 +209,14 @@ let typecheck_prog (p : program) : unit =
       end   
     | NewCstr (s, el) -> 
       let t = type_expr (New s) tenv in
-      let () = check (MethCall(New s, s, el)) TVoid tenv in
+      let () = check (MethCall (New s, s, el)) TVoid tenv in
       t
     | MethCall (e, s, el) ->
       begin
         match type_expr e tenv with
         | TClass c ->
           let cl = Interpreter.get_class p.classes c in
-          match Hashtbl.find_opt cl.methods (Interpreter.method_name_type s (List.map (fun e -> type_expr e tenv) el)) with
+          match Hashtbl.find_opt cl.methods @@ Interpreter.method_name_type s @@ List.map (fun e -> type_expr e tenv) el with
           | Some m -> 
             (* Code already checked (function unused) : check_meth cl (Some el) m ; *)
             (* Check if every expr in [el] is well-typed *)
@@ -277,7 +277,7 @@ let typecheck_prog (p : program) : unit =
     | Set (m, s, e) ->
       begin
         (* Get [m], then do the binary operator [op] with e, and then check if it's the same type as [m]*)
-        let op_then_set op = check (Binop(op, Get(m), e)) (type_mem_access m tenv) tenv
+        let op_then_set op = check (Binop (op, Get m, e)) (type_mem_access m tenv) tenv
         in
         match s with
         | S_Set -> check e (type_mem_access m tenv) tenv
@@ -293,7 +293,7 @@ let typecheck_prog (p : program) : unit =
           match t with
           | None -> tenv (* we use an external variable in the loop (or we do something else) *)
           | Some t -> (* we need to create a variable *)
-            let Set(Var(var), _, _) = set in
+            let Set (Var var, _, _) = set in
             let tenv = Env.add var t tenv in
             tenv
         in
@@ -309,7 +309,11 @@ let typecheck_prog (p : program) : unit =
       check_seq s ret tenv ;
       check_instr w ret tenv
     | Return e ->
-      check e ret tenv
+      begin
+        match e with
+        | None -> check Null ret tenv
+        | Some e -> check e ret tenv
+      end
     | Expr e ->
       check e TVoid tenv
 

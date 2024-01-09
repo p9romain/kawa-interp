@@ -16,8 +16,8 @@
           | _ -> var_set l
         end
     in
-    let set = var_set (List.map snd var) in
-    let var = List.flatten (List.map fst var) in
+    let set = var_set @@ List.map snd var in
+    let var = List.flatten @@ List.map fst var in
     let var_hash = Hashtbl.create 5 in
     let () = List.iter (fun (x, t) -> Hashtbl.replace var_hash x t) var in
     var_hash, set
@@ -33,7 +33,8 @@
 %token INT FLOAT CHAR STRING BOOL VOID
 %token <string> IDENT
 
-%token LPAR RPAR LBRA RBRA BEGIN END SEMI
+%token LPAR RPAR BEGIN END SEMI
+/* %token LBRA RBRA */
 
 %token PLUS U_MINUS MINUS TIMES SLASH MOD
 %token PLUS_SET MINUS_SET TIMES_SET SLASH_SET
@@ -63,7 +64,6 @@
 
    Even if some are useless, I choose to put them just in case
 */
-%right SET PLUS_SET MINUS_SET TIMES_SET SLASH_SET
 %right INTERO TWO_PT
 
 %left OR
@@ -74,11 +74,9 @@
 
 %left PLUS MINUS 
 %left TIMES SLASH MOD
-%nonassoc U_MINUS
+%nonassoc U_MINUS 
 
-%right NEW
-
-%left LBRA RBRA DOT COMMA
+%left DOT
 
 
 %start program
@@ -119,7 +117,7 @@ program:
       | None -> ()
     in
     let () = Hashtbl.iter inheritance cls_hash in
-    { classes = cls_hash ; globals = vars ; main = (set @ main) } 
+    { classes = cls_hash ; globals = vars ; main = set @ main } 
   }
 ;
 /* To get rid of 'var' keyword */
@@ -130,11 +128,11 @@ program_variables:
     var :: vars, cls, main
   }
 | cls=program_classes
-  { [], (fst cls), (snd cls) }
+  { [], fst cls, snd cls }
 ;
 program_classes:
 | c=class_def cls=program_classes
-  { (c :: (fst cls)), (snd cls) }
+  { c :: (fst cls), snd cls }
 | MAIN s=seq EOF { [], s }
 ;
 seq:
@@ -161,7 +159,7 @@ class_def:
 /* To get rid of 'attribute' and 'method' keywords*/
 class_def_attributes:
 | attr=attr_decl cls=class_def_attributes
-  { (attr @ (fst cls)), (snd cls) }
+  { attr @ (fst cls), snd cls }
 | meths=class_def_constructor
   { [], meths }
 ;
@@ -184,11 +182,11 @@ var_decl:
 | t=typ i=IDENT SET e=expr SEMI
   { [ (i, t) ], Set(Var(i), S_Set, e) }
 | t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI 
-  { (List.map (fun i -> (i, t) ) l), Expr(Null) }
+  { List.map (fun i -> (i, t)) l, Expr(Null) }
 ;
 attr_decl:
 | t=typ l=separated_nonempty_list(COMMA, i=IDENT { i }) SEMI 
-  { List.map (fun i -> (i, t) ) l }
+  { List.map (fun i -> (i, t)) l }
 ;
 
 
@@ -209,7 +207,7 @@ constructor_def:
   {
     let var, body = vars in
     let vars, set = init_and_setting_vars var in
-    let m_name = Interpreter.method_name_type i (List.map snd arg) in
+    let m_name = Interpreter.method_name_type i @@ List.map snd arg in
     { method_name = m_name ; code = set @ body ; params = arg ; locals = vars ; return = TVoid } 
   }
 ;
@@ -247,6 +245,7 @@ expr:
 | c=C { Char(c) }
 | s=S { String(s) }
 | STRING LPAR e=expr RPAR { StringCast(e) }
+/*| LPAR STRING RPAR e=expr { StringCast(e) }*/
 
 | TRUE { Bool(true) }
 | FALSE { Bool(false) }
@@ -290,7 +289,7 @@ instr:
 
 | DO s=seq WHILE LPAR e=expr RPAR { DoWhile(s, While(e, s)) }
 
-| RETURN e=expr { Return e }
+| RETURN e=option(expr) { Return e }
 
 | e=expr { Expr e }
 ;

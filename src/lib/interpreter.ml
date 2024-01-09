@@ -18,12 +18,13 @@ exception Return of value
 
 (* For printing an object and any value *)
 let rec string_of_obj (o : obj) : string =
-  Printf.sprintf "Object<%s>(%s)" o.cls (Hashtbl.fold 
-    (fun k v acc -> 
-      acc ^ (if acc = "" then "" else "; ") 
-          ^ (Printf.sprintf "%s = %s" k (string_of_value v)) 
-    ) 
-  o.fields "")
+  Printf.sprintf "Object<%s>(%s)" o.cls @@
+    Hashtbl.fold 
+      (fun k v acc -> 
+        acc ^ (if acc = "" then "" else "; ") 
+            ^ (Printf.sprintf "%s = %s" k @@ string_of_value v) 
+      ) 
+    o.fields ""
 and string_of_value (v : value) : string =
   match v with
   | VInt n -> string_of_int n
@@ -44,6 +45,15 @@ let typ_of_value (v : value) : typ =
   | VObj o -> TClass o.cls
   | VNull -> TVoid
 
+let default_values (t : typ) : value =
+  match t with
+  | TInt -> VInt 0
+  | TFloat -> VFloat 0.0
+  | TChar -> VChar (Char.chr 0)
+  | TString -> VString ""
+  | TBool -> VBool false
+  | _ -> VNull
+
 (* To manage overloading : method names are "Name@@[types]" *)
 let method_name_type (m_name : string) 
                      (typ_list : typ list) : string = 
@@ -51,7 +61,7 @@ let method_name_type (m_name : string)
           ^ (List.fold_left 
               (fun acc t -> acc
                           ^ (if acc = "" then "" else "; ") 
-                          ^ (Printf.sprintf "%s" (typ_to_string t))  
+                          ^ (Printf.sprintf "%s" @@ typ_to_string t)  
               )  
             "" typ_list) 
           ^ "]"
@@ -63,7 +73,7 @@ let method_name_expr (eval_expr : expr -> value)
           ^ (List.fold_left 
               (fun acc e -> acc
                           ^ (if acc = "" then "" else "; ") 
-                          ^ (Printf.sprintf "%s" (typ_to_string @@ typ_of_value @@ eval_expr e))  
+                          ^ (Printf.sprintf "%s" @@ typ_to_string @@ typ_of_value @@ eval_expr e)  
               ) 
             "" expr_list) 
           ^ "]"
@@ -121,20 +131,7 @@ let exec_prog (p : program) : unit =
   let global_env = Hashtbl.create 16 in
   (* alias *)
   let get_class = get_class p.classes in 
-  Hashtbl.iter (
-    fun x t -> 
-      let t = (* default values (useful for intput !)*)
-        match t with
-        | TInt -> VInt 0
-        | TFloat -> VFloat 0.0
-        | TChar -> VChar (Char.chr 0)
-        | TString -> VString ""
-        | TBool -> VBool false
-        | _ -> VNull
-      in
-      Hashtbl.add global_env x t
-    ) 
-  p.globals;
+  Hashtbl.iter (fun x t -> Hashtbl.add global_env x @@ default_values t) p.globals ;
 
   (* Execute a seq [s] with the local environment [local_env] *)
   let rec exec_seq (s : seq) 
@@ -175,8 +172,8 @@ let exec_prog (p : program) : unit =
                      (op_float : float -> float -> float) : value =
         match eval_expr e1, eval_expr e2 with
         | VInt n1, VInt n2 -> VInt (op_int n1 n2)
-        | VFloat f, VInt n -> VFloat (op_float f (float n))
-        | VInt n, VFloat f -> VFloat (op_float (float n) f)
+        | VFloat f, VInt n -> VFloat (op_float f @@ float n)
+        | VInt n, VFloat f -> VFloat (op_float (float n) @@ f)
         | VFloat f1, VFloat f2 -> VFloat (op_float f1 f2)
         | _ -> failwith "Impossible : typechecker's work"
       in
@@ -192,12 +189,12 @@ let exec_prog (p : program) : unit =
                   (op_string : string -> string -> bool) : value =
         match eval_expr e1, eval_expr e2 with
         | VInt n1, VInt n2 -> VBool (op_int n1 n2)
-        | VFloat f, VInt n -> VBool (op_float f (float n))
+        | VFloat f, VInt n -> VBool (op_float f @@ float n)
         | VInt n, VFloat f -> VBool (op_float (float n) f)
         | VFloat f1, VFloat f2 -> VBool (op_float f1 f2)
         | VChar c1, VChar c2 -> VBool (op_char c1 c2)
-        | VChar c, VString s -> VBool (op_string (String.make 1 c) s)
-        | VString s, VChar c -> VBool (op_string s (String.make 1 c))
+        | VChar c, VString s -> VBool (op_string (String.make 1 c) @@ s)
+        | VString s, VChar c -> VBool (op_string s @@ String.make 1 c)
         | VString s1, VString s2 -> VBool (op_string s1 s2)
         | _ -> failwith "Impossible : typechecker's work"
       in
@@ -236,11 +233,11 @@ let exec_prog (p : program) : unit =
           (* Two objects are equal if and only if they are physically the same object 
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 == o2 && o1 = o2)
-          | VString s, v -> VBool(s = string_of_value v)
-          | v, VString s -> VBool(string_of_value v = s)
-          | VNull, VNull -> VBool(true)
+          | VString s, v -> VBool (s = string_of_value v)
+          | v, VString s -> VBool (string_of_value v = s)
+          | VNull, VNull -> VBool true
           | VNull, _ 
-          | _, VNull -> VBool(false)
+          | _, VNull -> VBool false
           (* For integers and floats, and chars and strings *)
           | _ -> compare (=) (=) (=) (=)
         end
@@ -251,11 +248,11 @@ let exec_prog (p : program) : unit =
           (* Two objects are equal if and only if they are physically the same object 
              And we have "(==) => (=)", so we have '&&' *)
           | VObj o1, VObj o2 -> VBool (o1 != o2 && o1 <> o2)
-          | VNull, VNull -> VBool(false)
-          | VString s, v -> VBool(s <> string_of_value v)
-          | v, VString s -> VBool(string_of_value v <> s)
+          | VNull, VNull -> VBool false
+          | VString s, v -> VBool (s <> string_of_value v)
+          | v, VString s -> VBool (string_of_value v <> s)
           | VNull, _ 
-          | _, VNull -> VBool(true)
+          | _, VNull -> VBool true
           (* For integers and floats, and chars and strings *)
           | _ -> compare (<>) (<>) (<>) (<>)
         end
@@ -274,11 +271,11 @@ let exec_prog (p : program) : unit =
                        (e : expr) 
                        (var_name : string) : unit =
           match t, eval_expr e with
-          | TFloat, VInt n -> Hashtbl.replace args var_name (VFloat (float n))
-          | _ -> Hashtbl.replace args var_name (eval_expr e)
+          | TFloat, VInt n -> Hashtbl.replace args var_name @@ VFloat (float n)
+          | _ -> Hashtbl.replace args var_name @@ eval_expr e
         in
         (* Add all the parameters in the local environment *)
-        List.iter2 (fun e (x, t) -> assignment t e x ) arg m.params ;
+        List.iter2 (fun e (x, t) -> assignment t e x) arg m.params ;
         (* Start the method call *)
         eval_meth m o args
       in
@@ -291,7 +288,7 @@ let exec_prog (p : program) : unit =
           begin
             (* If not, check for the parent *)
             match c.parent with
-            | Some p -> inheritance (get_class p)
+            | Some p -> inheritance @@ get_class p
             | None -> raise (Error ("unbound value error: can't access the method '" ^ m_name ^ "' in the object of class '" ^ c.class_name ^ "'.")) 
           end
       in
@@ -302,9 +299,9 @@ let exec_prog (p : program) : unit =
                   (this : obj) 
                   (args : (string, value) Hashtbl.t) : value =
       (* Use an @ because i'm the only one who is allowed to do it (privelege) *)
-      Hashtbl.add args "@This" (VObj this) ;
+      Hashtbl.add args "@This" @@ VObj this ;
       (* Add local variables *)
-      Hashtbl.iter (fun x _ -> Hashtbl.add args x VNull) f.locals ;
+      Hashtbl.iter (fun x t -> Hashtbl.add args x @@ default_values t) f.locals ;
       (* Execute method *)
       try
         exec_seq f.code args ;
@@ -337,7 +334,7 @@ let exec_prog (p : program) : unit =
         end
       | Char c -> VChar c
       | String s -> VString s
-      | StringCast e -> VString (string_of_value (eval_expr e))
+      | StringCast e -> VString (string_of_value @@ eval_expr e)
       | Bool b -> VBool b
       | Null -> VNull
       | Unop (op, e) -> eval_unop op e
@@ -354,7 +351,7 @@ let exec_prog (p : program) : unit =
         end
       | InstanceOf (e, t) ->
         begin
-          let typ_e = typ_of_value (eval_expr e) in
+          let typ_e = typ_of_value @@ eval_expr e in
           let rec check_type (t1 : typ)
                              (t2 : typ) : value =
             match t1, t2 with
@@ -405,7 +402,7 @@ let exec_prog (p : program) : unit =
         VObj o
       | NewCstr (s, el) ->
         (* Create a new object *)
-        let VObj(o) = eval_expr (New s) in
+        let VObj o = eval_expr @@ New s in
         (* Call the constructor called by the same name as the class, so [s]*)
         let _ = eval_call o (method_name_expr eval_expr s el) el in
         VObj o
@@ -420,7 +417,7 @@ let exec_prog (p : program) : unit =
     (* Execute an instruction [i] *)
     let rec exec (i : instr) : unit = 
       match i with
-      | Print e -> Printf.printf "%s\n" (string_of_value (eval_expr e))
+      | Print e -> Printf.printf "%s" @@ string_of_value @@ eval_expr e
       | Input (s, e) ->
         begin
           let () = 
@@ -436,32 +433,32 @@ let exec_prog (p : program) : unit =
           match e with
           | Get m ->
             begin
-              match typ_of_value (eval_expr e) with
+              match typ_of_value @@ eval_expr e with
               | TInt -> 
                 begin
                   try
-                    exec ( Set(m, S_Set, Int(read_int ()) ) )
+                    exec @@ Set (m, S_Set, Int (read_int ()))
                   with _ ->
                     raise (Error "invalid argument exception: must be an integer")
                 end
               | TFloat -> 
                 begin
                   try
-                    exec ( Set(m, S_Set, Float(read_float ()) ) )
+                    exec @@ Set (m, S_Set, Float (read_float ()))
                   with _ ->
                     raise (Error "invalid argument exception: must be a float")
                 end
               | TChar -> 
                 begin
                   try
-                    exec ( Set(m, S_Set, Char(String.get (read_line ()) 0) ) )
+                    exec @@ Set (m, S_Set, Char (String.get (read_line ()) 0))
                   with _ ->
                     raise (Error "invalid argument exception: must be a character")
                 end
               | TString -> 
                 begin
                   try
-                    exec ( Set(m, S_Set, String(read_line ()) ) )
+                    exec @@ Set (m, S_Set, String (read_line ()))
                   with _ ->
                     raise (Error "invalid argument exception: must be a string")
                 end
@@ -488,7 +485,7 @@ let exec_prog (p : program) : unit =
               begin
                 match old_value, new_value with
                 (* type conversion, then assignment *)
-                | VFloat _, VInt n -> Hashtbl.replace hash_tab var_name (VFloat (float n))
+                | VFloat _, VInt n -> Hashtbl.replace hash_tab var_name @@ VFloat (float n)
                 (* direct assignment *)
                 | _ -> Hashtbl.replace hash_tab var_name new_value
               end
@@ -507,16 +504,16 @@ let exec_prog (p : program) : unit =
               | _ -> failwith "Impossible : typechecker's work."
             in
             (* Get the variable *)
-            let var = eval_expr (Get(m)) in
+            let var = eval_expr @@ Get m in
             (* Evaluate before assigning *)
-            let var_bop = eval_expr (Binop(op, (value_to_expr var), e)) in
+            let var_bop = eval_expr @@ Binop (op, value_to_expr var, e) in
             (* Assign *)
-            let _ = mem_access m eval_expr (assignment var_bop) in
+            let _ = mem_access m eval_expr @@ assignment var_bop in
             ()
           in
           match s with
           | S_Set -> 
-            let _ = mem_access m eval_expr (assignment (eval_expr e)) in
+            let _ = mem_access m eval_expr @@ assignment @@ eval_expr e in
             ()
           | S_Add -> op_then_set Add
           | S_Sub -> op_then_set Sub
@@ -529,13 +526,13 @@ let exec_prog (p : program) : unit =
             match t with
             | None -> None (* we use an external variable in the loop (or we do something else) *)
             | Some _ -> (* we need to create a variable *)
-              let Set(Var(var), _, _) = set in
+              let Set (Var var, _, _) = set in
               let () = Hashtbl.add local_env var VNull in
               (* t is useful only for type checking *)
               Some var
           in
           exec set ;
-          exec (While(cond, seq @ [incr])) ;
+          exec @@ While (cond, seq @ [incr]) ;
           (* if var was created *)
           match var with
           | None -> ()
@@ -558,7 +555,12 @@ let exec_prog (p : program) : unit =
         exec_seq s local_env ; (* do *)
         exec w (* while *)
       | Cond c -> exec_cond c
-      | Return e -> raise (Return (eval_expr e))
+      | Return e -> 
+          begin
+            match e with
+            | None -> raise (Return VNull)
+            | Some e -> raise (Return (eval_expr e))
+          end
       | Expr e -> let _ = eval_expr e in ()
 
     (* Execute a conditional instruction [c] *)
@@ -588,4 +590,4 @@ let exec_prog (p : program) : unit =
     (* Execute the sequence [s] *)
     List.iter exec s
   in
-  exec_seq p.main (Hashtbl.create 1)
+  exec_seq p.main @@ Hashtbl.create 1

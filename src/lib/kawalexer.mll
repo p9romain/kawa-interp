@@ -57,8 +57,8 @@ let integers = ( ['1'-'9'] digit+ ) | digit
 let exponent = ['e' 'E'] '-'? integers
 let floats = decimals | ( integers '.' ) | ( integers decimals ) | ( integers decimals? exponent )
 
-let chr = ([^ '\''] | ([^ '\''] '\\' '\'' [^ '\'']) )
-let str = ([^ '\"'] | ([^ '\"'] '\\' '\"' [^ '\"']) )*
+let chr = ([^ '\''] | '\\' _ )
+let str = ([^ '\"'] | '\\' _ )*
 
 (* Like Java *)
 let ident = (['a'-'z' 'A'-'Z'] | '_' ['a'-'z' 'A'-'Z']) (['a'-'z' 'A'-'Z'] | '_' | digit)*
@@ -78,8 +78,8 @@ rule token = parse
 
   | "("   { LPAR }
   | ")"   { RPAR }
-  | "["   { LBRA }
-  | "]"   { RBRA }
+(*  | "["   { LBRA }
+  | "]"   { RBRA } *)
   | "{"   { BEGIN }
   | "}"   { END }
   | ";"   { SEMI }

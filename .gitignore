@@ -3,5 +3,4 @@ tests
 _build/
 _opam/
 rapport/
-*.pdf
 kawa_tests.sh
