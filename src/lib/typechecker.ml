@@ -15,13 +15,13 @@ let typecheck_prog (p : program) : unit =
                 (typ_expected : typ) 
                 (tenv : typ Env.t) : unit =
     let typ_e = type_expr e tenv in
-    (* We allow x = null for anytime of x
+    (* We allow x = null for any type of x
        We check if they have different types
      *)
     if typ_e <> TVoid && typ_e <> typ_expected then
       begin
         match typ_e, typ_expected with
-        (* Type casting allowed for int and float *)
+        (* Type casting allowed for int and float, and char and string *)
         | TInt, TFloat -> ()
         | TChar, TString -> ()
          (* For inheritance : A extends B => B is also of type A *)
@@ -190,9 +190,21 @@ let typecheck_prog (p : program) : unit =
           (* t1 or t2 are void *)
           TVoid
     | InstanceOf (e, t) ->
-      (* Check if [e] is well-typed *)
-      let _ = type_expr e tenv in
-      TBool
+      begin
+        match t with
+        | TClass _ ->
+          begin
+            match type_expr e tenv with
+            | TClass _ -> 
+              try
+                check e t tenv ;
+                TBool
+              with _ ->
+                TBool
+            | _ -> error "type error: given argument must be an object"
+          end
+        | _ -> error "type error: given type must be a class"
+      end
     | Get m -> type_mem_access m tenv
     | This ->
       begin

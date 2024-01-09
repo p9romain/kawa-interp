@@ -36,7 +36,7 @@
 %token LPAR RPAR BEGIN END SEMI
 /* %token LBRA RBRA */
 
-%token PLUS U_MINUS MINUS TIMES SLASH MOD
+%token PLUS MINUS TIMES SLASH MOD
 %token PLUS_SET MINUS_SET TIMES_SET SLASH_SET
 
 %token NOT AND OR
@@ -74,7 +74,6 @@
 
 %left PLUS MINUS 
 %left TIMES SLASH MOD
-%nonassoc U_MINUS 
 
 %left DOT
 
@@ -330,7 +329,7 @@ cond:
 | OR    { Or  }
 ;
 %inline uop :
-| U_MINUS { Opp }
+| MINUS { Opp }
 
 | NOT     { Not }
 ;

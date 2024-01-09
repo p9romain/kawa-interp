@@ -368,7 +368,7 @@ let exec_prog (p : program) : unit =
                   VBool true
               in
               check_inheritance_type c1
-            | _, _ -> VBool false
+            | _ -> failwith "Impossible : typechecker's work"
           in
           check_type typ_e t
         end
