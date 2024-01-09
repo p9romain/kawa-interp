@@ -54,29 +54,29 @@ let default_values (t : typ) : value =
   | TBool -> VBool false
   | _ -> VNull
 
-(* To manage overloading : method names are "Name@@[types]" *)
+(* To manage overloading : method names are "Name@@types" *)
 let method_name_type (m_name : string) 
                      (typ_list : typ list) : string = 
-  m_name  ^ "@@[" 
+  m_name  ^ "@@" 
           ^ (List.fold_left 
               (fun acc t -> acc
                           ^ (if acc = "" then "" else "; ") 
                           ^ (Printf.sprintf "%s" @@ typ_to_string t)  
               )  
             "" typ_list) 
-          ^ "]"
-(* To manage overloading : method names are "Name@@[types]" from a given parameter list *)
+          ^ ""
+(* To manage overloading : method names are "Name@@types" from a given parameter list *)
 let method_name_expr (eval_expr : expr -> value)
                      (m_name : string) 
                      (expr_list : expr list) : string =
-  m_name  ^ "@@[" 
+  m_name  ^ "@@" 
           ^ (List.fold_left 
               (fun acc e -> acc
                           ^ (if acc = "" then "" else "; ") 
                           ^ (Printf.sprintf "%s" @@ typ_to_string @@ typ_of_value @@ eval_expr e)  
               ) 
             "" expr_list) 
-          ^ "]"
+          ^ ""
 
 (* To get classes of name [c_name]*)
 let get_class (cls_hash : (string, class_def) Hashtbl.t) 
