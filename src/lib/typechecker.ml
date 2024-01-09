@@ -255,6 +255,10 @@ let typecheck_prog (p : program) : unit =
       (* Check if [e] is well-typed *)
       let _ = type_expr e tenv in 
       ()
+    | Println e ->
+      (* Check if [e] is well-typed *)
+      let _ = type_expr e tenv in 
+      ()
     | Input (s, e) ->
       begin
         let _ = 

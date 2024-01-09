@@ -418,6 +418,7 @@ let exec_prog (p : program) : unit =
     let rec exec (i : instr) : unit = 
       match i with
       | Print e -> Printf.printf "%s" @@ string_of_value @@ eval_expr e
+      | Println e -> Printf.printf "%s\n" @@ string_of_value @@ eval_expr e
       | Input (s, e) ->
         begin
           let () = 

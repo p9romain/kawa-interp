@@ -52,7 +52,7 @@
 %token COMMA RETURN
 
 %token MAIN
-%token PRINT INPUT ASSERT
+%token PRINT PRINTLN INPUT ASSERT
 %token INSTANCEOF
 %token EOF
 
@@ -281,6 +281,7 @@ mem:
 
 instr:
 | PRINT LPAR e=expr RPAR { Print e }
+| PRINTLN LPAR e=expr RPAR { Println e }
 | INPUT LPAR e=expr RPAR { Input(None, e) }
 | INPUT LPAR s=expr COMMA e=expr RPAR { Input(Some s, e) }
 | ASSERT LPAR e=expr RPAR { Assert e }

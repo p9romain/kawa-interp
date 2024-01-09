@@ -63,8 +63,10 @@ and mem_access =
 
 (* Instructions *)
 type instr =
-  (* Print a boolean or an int *)
-  | Print  of expr
+  (* Print everything *)
+  | Print   of expr
+  (* Print everything with an endline *)
+  | Println of expr
   (* Get a value from a terminal *)
   | Input  of expr option * expr
   (* Check is something is true : else it terminates the program *)
